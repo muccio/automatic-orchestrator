@@ -17,4 +17,5 @@
 | Task 15: Cubase Track Archive XML & Kontakt 8 Orchestral Template | Done | Cubase Track Archive XML pre-configured with Kontakt 8 VST3 |
 | Task 16: Cubase Expression Maps for CSS, CSB, CSW | Done | Expression map XML files (.expressionmap) with CC58 mappings |
 | Task 17: Local System Installation & Verification | Done | Copy to Steinberg Track Presets and local VST3 directories |
-| Task 18: Build, Test Suite Execution & GitHub Release v1.1.0 | In Progress | Automated tests, Git commit/tag, zip asset, publish release v1.1.0 |
+| Task 18: Build, Test Suite Execution & GitHub Release v1.1.0 | Done | Automated tests (27/27), Git tag v1.1.0, published release |
+| Task 19: Fix Plugin GUI Initialization Crash in DAW Hosts | Done | Move setSize to end of constructor, add defensive nullptr checks in resized() |

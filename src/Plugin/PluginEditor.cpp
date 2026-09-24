@@ -38,8 +38,6 @@ void MidiDragComponent::mouseDrag(const juce::MouseEvent& e) {
 HollywoodOrchestratorEditor::HollywoodOrchestratorEditor(HollywoodOrchestratorAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p)
 {
-    setSize(920, 640);
-
     // Header Chord Display
     chordDisplayLabel.setText("READY", juce::dontSendNotification);
     chordDisplayLabel.setFont(juce::Font(28.0f, juce::Font::bold));
@@ -167,6 +165,7 @@ HollywoodOrchestratorEditor::HollywoodOrchestratorEditor(HollywoodOrchestratorAu
     setupSlider(humanizeVelSlider, humanizeLabel, "HUMANIZE", 0, 20, 5, "");
     humanizeVelSlider.onValueChange = [this]() { audioProcessor.setVelocityHumanize((int)humanizeVelSlider.getValue()); };
 
+    setSize(920, 640);
     startTimerHz(30); // 30 FPS UI refresh
 }
 
@@ -238,14 +237,18 @@ void HollywoodOrchestratorEditor::resized() {
     patternSelector.setBounds(20, 65, 170, 26);
     modeSelector.setBounds(200, 65, 130, 26);
     librarySelector.setBounds(getWidth() - 360, 65, 180, 26);
-    masterDragButton->setBounds(getWidth() - 170, 65, 150, 26);
+    if (masterDragButton != nullptr) {
+        masterDragButton->setBounds(getWidth() - 170, 65, 150, 26);
+    }
 
     // Stem drag buttons placed in the section matrix
     int stemIdx = 0;
     for (auto& btn : stemDragButtons) {
-        int col = stemIdx % 6;
-        btn->setBounds(20 + col * 90, getHeight() - 100, 80, 24);
-        stemIdx++;
+        if (btn != nullptr) {
+            int col = stemIdx % 6;
+            btn->setBounds(20 + col * 90, getHeight() - 100, 80, 24);
+            stemIdx++;
+        }
     }
 
     // Bottom controls
