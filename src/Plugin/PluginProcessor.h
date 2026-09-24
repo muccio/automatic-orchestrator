@@ -57,6 +57,9 @@ public:
     void setTrackStep(Harmonic::InstrumentId inst, int stepIndex, bool active, int stepOffset, int velocity, Harmonic::ArticulationType art) {
         sequencerEngine.setTrackStep(inst, stepIndex, active, stepOffset, velocity, art);
     }
+    void setTrackStepLength(Harmonic::InstrumentId inst, int stepIndex, int lengthSteps) {
+        sequencerEngine.setTrackStepLength(inst, stepIndex, lengthSteps);
+    }
     void setTrackArticulation(Harmonic::InstrumentId inst, Harmonic::ArticulationType art) {
         sequencerEngine.setTrackArticulation(inst, art);
     }
@@ -69,6 +72,9 @@ public:
     void setTrackVolume(Harmonic::InstrumentId inst, float vol) {
         sequencerEngine.setTrackVolume(inst, vol);
     }
+    void setTrackPan(Harmonic::InstrumentId inst, float pan) {
+        sequencerEngine.setTrackPan(inst, pan);
+    }
     void setTrackMute(Harmonic::InstrumentId inst, bool mute) {
         sequencerEngine.setTrackMute(inst, mute);
     }
@@ -78,6 +84,21 @@ public:
     void setTrackCc1(Harmonic::InstrumentId inst, int stepIndex, int cc1Val) {
         sequencerEngine.setTrackCc1(inst, stepIndex, cc1Val);
     }
+
+    void addTrack(Harmonic::InstrumentId inst, const std::string& name, Harmonic::OrchestralSection sec, int channel, Harmonic::ArticulationType art) {
+        sequencerEngine.addTrack(inst, name, sec, channel, art);
+    }
+    void removeTrack(Harmonic::InstrumentId inst) {
+        sequencerEngine.removeTrack(inst);
+    }
+
+    // Preset Management
+    juce::File getPresetsFolder() const;
+    bool savePresetToFile(const juce::File& file, const juce::String& presetName);
+    bool loadPresetFromFile(const juce::File& file);
+
+    Sequencer::SequencerEngine& getSequencerEngine() { return sequencerEngine; }
+
     int getCurrentStep() const { return sequencerEngine.getCurrentStep(); }
 
     void setTempoBpm(double bpm) { sequencerEngine.setTempo(bpm); }

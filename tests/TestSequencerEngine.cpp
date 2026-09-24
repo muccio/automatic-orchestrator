@@ -51,3 +51,49 @@ TEST_CASE(SequencerEngine, StepGenerationAndMidiEvents) {
     }
     ASSERT_TRUE(hasVln1);
 }
+
+TEST_CASE(SequencerEngine, NoteLengthAndEmptyTrackEditing) {
+    Sequencer::SequencerEngine seq;
+    // Test editing an empty/unpopulated track (e.g. Tuba)
+    seq.setTrackStep(Harmonic::InstrumentId::Tuba, 0, true, 0, 110, Harmonic::ArticulationType::Marcato);
+    seq.setTrackStepLength(Harmonic::InstrumentId::Tuba, 0, 4); // 4 steps long
+    seq.setTrackArticulation(Harmonic::InstrumentId::Tuba, Harmonic::ArticulationType::Marcato);
+    seq.setTrackPan(Harmonic::InstrumentId::Tuba, -0.25f);
+
+    auto p = seq.getPattern();
+    ASSERT_TRUE(p.tracks.find(Harmonic::InstrumentId::Tuba) != p.tracks.end());
+    const auto& tubaTrk = p.tracks[Harmonic::InstrumentId::Tuba];
+    ASSERT_EQ(tubaTrk.steps[0].lengthSteps, 4);
+    ASSERT_EQ(tubaTrk.articulation, Harmonic::ArticulationType::Marcato);
+    ASSERT_TRUE(std::abs(tubaTrk.pan - (-0.25f)) < 0.001f);
+
+    // Test addTrack and removeTrack
+    seq.addTrack(Harmonic::InstrumentId::Flutes, "Solo Concert Flute", Harmonic::OrchestralSection::Woodwinds, 10, Harmonic::ArticulationType::Sustain);
+    p = seq.getPattern();
+    ASSERT_TRUE(p.tracks.find(Harmonic::InstrumentId::Flutes) != p.tracks.end());
+    ASSERT_EQ(p.tracks[Harmonic::InstrumentId::Flutes].midiChannel, 10);
+
+    seq.removeTrack(Harmonic::InstrumentId::Flutes);
+    p = seq.getPattern();
+    ASSERT_TRUE(p.tracks.find(Harmonic::InstrumentId::Flutes) == p.tracks.end());
+}
+
+TEST_CASE(SequencerEngine, PatternJsonSerialization) {
+    auto original = Sequencer::createActionOstinatoPattern();
+    original.bpm = 138.0;
+    original.tracks[Harmonic::InstrumentId::Violins1].steps[0].lengthSteps = 3;
+    original.tracks[Harmonic::InstrumentId::Violins1].pan = 0.5f;
+
+    std::string jsonStr = original.toJson();
+    ASSERT_TRUE(!jsonStr.empty());
+    ASSERT_TRUE(jsonStr.find("Action Ostinato") != std::string::npos);
+    ASSERT_TRUE(jsonStr.find("\"lengthSteps\": 3") != std::string::npos);
+
+    auto restored = Sequencer::OrchestralPattern::fromJson(jsonStr);
+    ASSERT_EQ(restored.name, original.name);
+    ASSERT_EQ(restored.bpm, 138.0);
+    ASSERT_EQ(restored.tracks.size(), original.tracks.size());
+    ASSERT_EQ(restored.tracks[Harmonic::InstrumentId::Violins1].steps[0].lengthSteps, 3);
+    ASSERT_TRUE(std::abs(restored.tracks[Harmonic::InstrumentId::Violins1].pan - 0.5f) < 0.001f);
+}
+

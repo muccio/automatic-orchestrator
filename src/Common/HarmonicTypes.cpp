@@ -140,6 +140,53 @@ std::vector<int> getScaleModeIntervals(ScaleMode mode) {
             return {0, 2, 4, 5, 7, 9, 11};
     }
 }
+
+OrchestralSection getInstrumentSection(InstrumentId id) {
+    switch (id) {
+        case InstrumentId::Violins1:
+        case InstrumentId::Violins2:
+        case InstrumentId::Violas:
+        case InstrumentId::Cellos:
+        case InstrumentId::DoubleBasses:
+            return OrchestralSection::Strings;
+        case InstrumentId::FrenchHorns:
+        case InstrumentId::Trumpets:
+        case InstrumentId::Trombones:
+        case InstrumentId::Tuba:
+            return OrchestralSection::Brass;
+        case InstrumentId::Flutes:
+        case InstrumentId::Oboes:
+        case InstrumentId::Clarinets:
+        case InstrumentId::Bassoons:
+            return OrchestralSection::Woodwinds;
+        case InstrumentId::Timpani:
+        case InstrumentId::OrchestralPerc:
+            return OrchestralSection::Percussion;
+        default:
+            return OrchestralSection::Strings;
+    }
+}
+
+int getDefaultInstrumentChannel(InstrumentId id) {
+    switch (id) {
+        case InstrumentId::Violins1: return 1;
+        case InstrumentId::Violins2: return 2;
+        case InstrumentId::Violas: return 3;
+        case InstrumentId::Cellos: return 4;
+        case InstrumentId::DoubleBasses: return 5;
+        case InstrumentId::Trumpets: return 6;
+        case InstrumentId::FrenchHorns: return 7;
+        case InstrumentId::Trombones: return 8;
+        case InstrumentId::Tuba: return 9;
+        case InstrumentId::Flutes: return 10;
+        case InstrumentId::Oboes: return 11;
+        case InstrumentId::Clarinets: return 12;
+        case InstrumentId::Bassoons: return 13;
+        case InstrumentId::Timpani: return 14;
+        case InstrumentId::OrchestralPerc: return 15;
+        default: return 1;
+    }
+}
 std::ostream& operator<<(std::ostream& os, ChordQuality q) {
     return os << chordQualityToString(q);
 }

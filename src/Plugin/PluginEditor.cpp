@@ -1,5 +1,47 @@
 #include "PluginEditor.h"
 
+static juce::String getShortInstrumentName(Harmonic::InstrumentId id) {
+    switch (id) {
+        case Harmonic::InstrumentId::Violins1: return "Vln 1";
+        case Harmonic::InstrumentId::Violins2: return "Vln 2";
+        case Harmonic::InstrumentId::Violas: return "Vla";
+        case Harmonic::InstrumentId::Cellos: return "Vc";
+        case Harmonic::InstrumentId::DoubleBasses: return "Cb";
+        case Harmonic::InstrumentId::FrenchHorns: return "Hrn";
+        case Harmonic::InstrumentId::Trumpets: return "Tpt";
+        case Harmonic::InstrumentId::Trombones: return "Trb";
+        case Harmonic::InstrumentId::Tuba: return "Tba";
+        case Harmonic::InstrumentId::Flutes: return "Flt";
+        case Harmonic::InstrumentId::Oboes: return "Ob";
+        case Harmonic::InstrumentId::Clarinets: return "Cl";
+        case Harmonic::InstrumentId::Bassoons: return "Bsn";
+        case Harmonic::InstrumentId::Timpani: return "Timp";
+        case Harmonic::InstrumentId::OrchestralPerc: return "Perc";
+        default: return "Inst";
+    }
+}
+
+static juce::Colour getInstrumentColor(Harmonic::InstrumentId id) {
+    switch (id) {
+        case Harmonic::InstrumentId::Violins1: return juce::Colour(0xff00d2ff); // Cyan
+        case Harmonic::InstrumentId::Violins2: return juce::Colour(0xff00b4d8); // Sky blue
+        case Harmonic::InstrumentId::Violas: return juce::Colour(0xffffb703); // Warm amber
+        case Harmonic::InstrumentId::Cellos: return juce::Colour(0xff52b788); // Mint green
+        case Harmonic::InstrumentId::DoubleBasses: return juce::Colour(0xffb5179e); // Purple
+        case Harmonic::InstrumentId::FrenchHorns: return juce::Colour(0xfffb8500); // Horn orange
+        case Harmonic::InstrumentId::Trumpets: return juce::Colour(0xffff5400); // Bright orange
+        case Harmonic::InstrumentId::Trombones: return juce::Colour(0xffff0054); // Coral red
+        case Harmonic::InstrumentId::Tuba: return juce::Colour(0xff9d4edd); // Violet
+        case Harmonic::InstrumentId::Flutes: return juce::Colour(0xff48cae4); // Light cyan
+        case Harmonic::InstrumentId::Oboes: return juce::Colour(0xff80b918); // Yellow-green
+        case Harmonic::InstrumentId::Clarinets: return juce::Colour(0xff2ec4b6); // Teal
+        case Harmonic::InstrumentId::Bassoons: return juce::Colour(0xffcb997e); // Sand/wood
+        case Harmonic::InstrumentId::Timpani: return juce::Colour(0xffe63946); // Ruby red
+        case Harmonic::InstrumentId::OrchestralPerc: return juce::Colour(0xffff006e); // Magenta
+        default: return juce::Colour(0xff00d2ff);
+    }
+}
+
 // -------------------------------------------------------------
 // MidiDragComponent Implementation
 // -------------------------------------------------------------
@@ -277,6 +319,43 @@ void StepGridComponent::handleCellClick(int step, int row) {
     refreshFromPattern(processor.getCurrentPattern());
 }
 
+void StepGridComponent::mouseMove(const juce::MouseEvent& e) {
+    float gridX = (float)e.x - labelWidth;
+    if (gridX < 0) {
+        setMouseCursor(juce::MouseCursor::NormalCursor);
+        return;
+    }
+
+    float gridW = (float)getWidth() - labelWidth;
+    float cellW = gridW / (float)numSteps;
+    float cellH = (float)getHeight() / (float)numPitchRows;
+
+    bool nearRightEdge = false;
+    for (size_t s = 0; s < currentTrack.steps.size() && s < (size_t)numSteps; ++s) {
+        const auto& stepDef = currentTrack.steps[s];
+        if (stepDef.active && stepDef.action != Harmonic::StepActionType::Rest) {
+            int row = getRowForPitchOffset(stepDef.stepOffset);
+            if (row >= 0 && row < numPitchRows) {
+                float startX = labelWidth + s * cellW;
+                int len = std::clamp(stepDef.lengthSteps, 1, 16 - (int)s);
+                float endX = startX + len * cellW;
+                float y = row * cellH;
+
+                if (e.x >= endX - 8.0f && e.x <= endX + 4.0f && e.y >= y && e.y <= y + cellH) {
+                    nearRightEdge = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (nearRightEdge) {
+        setMouseCursor(juce::MouseCursor::LeftRightResizeCursor);
+    } else {
+        setMouseCursor(juce::MouseCursor::NormalCursor);
+    }
+}
+
 void StepGridComponent::mouseDown(const juce::MouseEvent& e) {
     float gridX = (float)e.x - labelWidth;
     if (gridX < 0) return;
@@ -284,6 +363,28 @@ void StepGridComponent::mouseDown(const juce::MouseEvent& e) {
     float gridW = (float)getWidth() - labelWidth;
     float cellW = gridW / (float)numSteps;
     float cellH = (float)getHeight() / (float)numPitchRows;
+
+    // Check if clicking near right edge of an existing active note to resize
+    for (size_t s = 0; s < currentTrack.steps.size() && s < (size_t)numSteps; ++s) {
+        const auto& stepDef = currentTrack.steps[s];
+        if (stepDef.active && stepDef.action != Harmonic::StepActionType::Rest) {
+            int row = getRowForPitchOffset(stepDef.stepOffset);
+            if (row >= 0 && row < numPitchRows) {
+                float startX = labelWidth + s * cellW;
+                int len = std::clamp(stepDef.lengthSteps, 1, 16 - (int)s);
+                float endX = startX + len * cellW;
+                float y = row * cellH;
+
+                if (e.x >= endX - 8.0f && e.x <= endX + 4.0f && e.y >= y && e.y <= y + cellH) {
+                    isResizing = true;
+                    resizeStep = (int)s;
+                    originalLength = len;
+                    dragStartX = startX;
+                    return;
+                }
+            }
+        }
+    }
 
     int step = static_cast<int>(gridX / cellW);
     int row = static_cast<int>((float)e.y / cellH);
@@ -299,6 +400,18 @@ void StepGridComponent::mouseDrag(const juce::MouseEvent& e) {
     float cellW = gridW / (float)numSteps;
     float cellH = (float)getHeight() / (float)numPitchRows;
 
+    if (isResizing && resizeStep >= 0) {
+        float currentX = (float)e.x;
+        float diffX = currentX - dragStartX;
+        int newLength = std::clamp(static_cast<int>(std::round(diffX / cellW)), 1, 16 - resizeStep);
+        if (resizeStep < (int)currentTrack.steps.size()) {
+            currentTrack.steps[resizeStep].lengthSteps = newLength;
+            processor.setTrackStepLength(activeInstrument, resizeStep, newLength);
+            repaint();
+        }
+        return;
+    }
+
     int step = static_cast<int>(gridX / cellW);
     int row = static_cast<int>((float)e.y / cellH);
 
@@ -310,6 +423,15 @@ void StepGridComponent::mouseDrag(const juce::MouseEvent& e) {
             processor.setTrackStep(activeInstrument, step, true, targetOffset, noteVelocity, currentTrack.articulation);
         }
         refreshFromPattern(processor.getCurrentPattern());
+    }
+}
+
+void StepGridComponent::mouseUp(const juce::MouseEvent&) {
+    if (isResizing) {
+        isResizing = false;
+        resizeStep = -1;
+        refreshFromPattern(processor.getCurrentPattern());
+        setMouseCursor(juce::MouseCursor::NormalCursor);
     }
 }
 
@@ -371,14 +493,52 @@ void StepGridComponent::paint(juce::Graphics& g) {
         g.drawVerticalLine((int)x, 0.0f, h);
     }
 
-    // Draw active notes
-    juce::Colour noteColor = juce::Colour(0xff00d2ff); // Default Cyan for Strings
-    // Color code according to instrument section
-    int instVal = static_cast<int>(activeInstrument);
-    if (instVal >= 0 && instVal <= 4) noteColor = juce::Colour(0xff00d2ff); // Strings (Cyan)
-    else if (instVal >= 5 && instVal <= 8) noteColor = juce::Colour(0xfff6ad55); // Brass (Gold)
-    else if (instVal >= 9 && instVal <= 12) noteColor = juce::Colour(0xff68d391); // Woodwinds (Emerald)
-    else noteColor = juce::Colour(0xfffc8181); // Percussion (Coral)
+    // -------------------------------------------------------------
+    // GHOST NOTES: Draw translucent notes of ALL OTHER TRACKS in the active section!
+    // -------------------------------------------------------------
+    auto fullPattern = processor.getCurrentPattern();
+    Harmonic::OrchestralSection curSec = Harmonic::getInstrumentSection(activeInstrument);
+
+    for (const auto& [trackInst, trk] : fullPattern.tracks) {
+        if (trackInst == activeInstrument) continue;
+        Harmonic::OrchestralSection instSec = Harmonic::getInstrumentSection(trackInst);
+        if (instSec != curSec) continue;
+
+        juce::Colour ghostCol = getInstrumentColor(trackInst);
+        juce::String instShort = getShortInstrumentName(trackInst);
+
+        for (size_t s = 0; s < trk.steps.size() && s < (size_t)numSteps; ++s) {
+            const auto& sDef = trk.steps[s];
+            if (sDef.active && sDef.action != Harmonic::StepActionType::Rest) {
+                int row = getRowForPitchOffset(sDef.stepOffset);
+                if (row >= 0 && row < numPitchRows) {
+                    float gx = labelWidth + s * cellW + 1.5f;
+                    float gy = row * cellH + 1.5f;
+                    int gLen = std::clamp(sDef.lengthSteps, 1, 16 - (int)s);
+                    float gBlockW = (gLen * cellW) - 3.0f;
+                    float gBlockH = cellH - 3.0f;
+
+                    // Translucent body
+                    g.setColour(ghostCol.withAlpha(0.24f));
+                    g.fillRoundedRectangle(gx, gy, gBlockW, gBlockH, 3.0f);
+
+                    // Translucent subtle outline
+                    g.setColour(ghostCol.withAlpha(0.50f));
+                    g.drawRoundedRectangle(gx, gy, gBlockW, gBlockH, 3.0f, 0.75f);
+
+                    // Instrument name badge in ghost note
+                    g.setFont(juce::Font(8.0f));
+                    g.setColour(ghostCol.withAlpha(0.75f));
+                    g.drawText(instShort, (int)gx + 3, (int)gy, (int)gBlockW - 6, (int)gBlockH, juce::Justification::centredLeft);
+                }
+            }
+        }
+    }
+
+    // -------------------------------------------------------------
+    // ACTIVE TRACK NOTES: Vivid solid color with resize handles
+    // -------------------------------------------------------------
+    juce::Colour activeColor = getInstrumentColor(activeInstrument);
 
     for (size_t s = 0; s < currentTrack.steps.size() && s < (size_t)numSteps; ++s) {
         const auto& stepDef = currentTrack.steps[s];
@@ -387,15 +547,28 @@ void StepGridComponent::paint(juce::Graphics& g) {
             if (row >= 0 && row < numPitchRows) {
                 float x = labelWidth + s * cellW + 1.5f;
                 float y = row * cellH + 1.5f;
-                float blockW = cellW - 3.0f;
+                int len = std::clamp(stepDef.lengthSteps, 1, 16 - (int)s);
+                float blockW = (len * cellW) - 3.0f;
                 float blockH = cellH - 3.0f;
 
                 // Glowing note block
-                g.setColour(noteColor.withAlpha(0.85f));
+                g.setColour(activeColor.withAlpha(0.92f));
                 g.fillRoundedRectangle(x, y, blockW, blockH, 3.0f);
 
                 g.setColour(juce::Colours::white);
-                g.drawRoundedRectangle(x, y, blockW, blockH, 3.0f, 1.0f);
+                g.drawRoundedRectangle(x, y, blockW, blockH, 3.0f, 1.2f);
+
+                // Right-edge resize grip handle
+                float gripX = x + blockW - 5.0f;
+                g.setColour(juce::Colours::white.withAlpha(0.85f));
+                g.drawLine(gripX, y + 3.0f, gripX, y + blockH - 3.0f, 1.5f);
+                g.drawLine(gripX + 2.0f, y + 4.0f, gripX + 2.0f, y + blockH - 4.0f, 1.0f);
+
+                // Pitch offset label
+                juce::String txt = stepDef.stepOffset > 0 ? "+" + juce::String(stepDef.stepOffset) : (stepDef.stepOffset == 0 ? "0" : juce::String(stepDef.stepOffset));
+                g.setFont(juce::Font(9.0f, juce::Font::bold));
+                g.setColour(juce::Colours::white);
+                g.drawText(txt, (int)x + 3, (int)y, 22, (int)blockH, juce::Justification::centredLeft);
             }
         }
     }
@@ -515,6 +688,305 @@ void Cc1LaneComponent::paint(juce::Graphics& g) {
 }
 
 // -------------------------------------------------------------
+// MixerChannelStrip Implementation
+// -------------------------------------------------------------
+MixerChannelStrip::MixerChannelStrip(AutomaticOrchestratorAudioProcessor& p,
+                                     Harmonic::InstrumentId instId,
+                                     int chNum)
+    : processor(p), instrument(instId), channelNumber(chNum)
+{
+    chBadge.setText("CH " + juce::String(channelNumber), juce::dontSendNotification);
+    chBadge.setFont(juce::Font(9.0f, juce::Font::bold));
+    chBadge.setColour(juce::Label::textColourId, juce::Colour(0xff718096));
+    chBadge.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(chBadge);
+
+    nameLabel.setText(getShortInstrumentName(instrument), juce::dontSendNotification);
+    nameLabel.setFont(juce::Font(10.5f, juce::Font::bold));
+    nameLabel.setColour(juce::Label::textColourId, juce::Colour(0xffedf2f7));
+    nameLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(nameLabel);
+
+    Harmonic::OrchestralSection sec = Harmonic::getInstrumentSection(instrument);
+    juce::String secStr = "STR";
+    if (sec == Harmonic::OrchestralSection::Brass) secStr = "BRS";
+    else if (sec == Harmonic::OrchestralSection::Woodwinds) secStr = "WND";
+    else if (sec == Harmonic::OrchestralSection::Percussion) secStr = "PRC";
+
+    sectionBadge.setText(secStr, juce::dontSendNotification);
+    sectionBadge.setFont(juce::Font(8.0f, juce::Font::bold));
+    sectionBadge.setColour(juce::Label::textColourId, getInstrumentColor(instrument));
+    sectionBadge.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(sectionBadge);
+
+    // Pan slider (Rotary)
+    panSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    panSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    panSlider.setRange(-1.0, 1.0, 0.05);
+    panSlider.setValue(0.0);
+    panSlider.onValueChange = [this]() {
+        processor.setTrackPan(instrument, (float)panSlider.getValue());
+    };
+    addAndMakeVisible(panSlider);
+
+    // Mute / Solo
+    muteBtn.setClickingTogglesState(true);
+    muteBtn.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffe53e3e));
+    muteBtn.onClick = [this]() {
+        processor.setTrackMute(instrument, muteBtn.getToggleState());
+    };
+    addAndMakeVisible(muteBtn);
+
+    soloBtn.setClickingTogglesState(true);
+    soloBtn.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffecc94b));
+    soloBtn.onClick = [this]() {
+        processor.setTrackSolo(instrument, soloBtn.getToggleState());
+    };
+    addAndMakeVisible(soloBtn);
+
+    // Volume Slider (Vertical Linear Fader)
+    volumeSlider.setSliderStyle(juce::Slider::LinearVertical);
+    volumeSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    volumeSlider.setRange(0.0, 1.25, 0.01);
+    volumeSlider.setValue(0.85);
+    volumeSlider.onValueChange = [this]() {
+        float val = (float)volumeSlider.getValue();
+        processor.setTrackVolume(instrument, val);
+        float db = (val > 0.0001f) ? (20.0f * std::log10(val)) : -60.0f;
+        if (db < -59.0f) dbLabel.setText("-inf dB", juce::dontSendNotification);
+        else dbLabel.setText(juce::String(db, 1) + " dB", juce::dontSendNotification);
+    };
+    addAndMakeVisible(volumeSlider);
+
+    dbLabel.setText("-1.4 dB", juce::dontSendNotification);
+    dbLabel.setFont(juce::Font(9.0f));
+    dbLabel.setColour(juce::Label::textColourId, juce::Colour(0xffa0aec0));
+    dbLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(dbLabel);
+}
+
+void MixerChannelStrip::setMeterLevel(float level) {
+    currentMeterLevel = std::clamp(level, 0.0f, 1.0f);
+    repaint();
+}
+
+void MixerChannelStrip::refreshFromTrack(const Sequencer::TrackPattern& track) {
+    panSlider.setValue(track.pan, juce::dontSendNotification);
+    volumeSlider.setValue(track.volume, juce::dontSendNotification);
+    muteBtn.setToggleState(track.isMuted, juce::dontSendNotification);
+    soloBtn.setToggleState(track.isSolo, juce::dontSendNotification);
+
+    float db = (track.volume > 0.0001f) ? (20.0f * std::log10(track.volume)) : -60.0f;
+    if (db < -59.0f) dbLabel.setText("-inf dB", juce::dontSendNotification);
+    else dbLabel.setText(juce::String(db, 1) + " dB", juce::dontSendNotification);
+}
+
+void MixerChannelStrip::paint(juce::Graphics& g) {
+    auto bounds = getLocalBounds().toFloat().reduced(2.0f);
+
+    // Strip background
+    g.setColour(juce::Colour(0xff14171e));
+    g.fillRoundedRectangle(bounds, 4.0f);
+    g.setColour(juce::Colour(0xff232732));
+    g.drawRoundedRectangle(bounds, 4.0f, 1.0f);
+
+    // Section color top accent bar
+    g.setColour(getInstrumentColor(instrument));
+    g.fillRect(bounds.getX(), bounds.getY(), bounds.getWidth(), 3.0f);
+
+    // Meter slot background
+    float meterX = bounds.getX() + bounds.getWidth() - 12.0f;
+    float meterY = bounds.getY() + 130.0f;
+    float meterW = 5.0f;
+    float meterH = bounds.getHeight() - 165.0f;
+
+    g.setColour(juce::Colour(0xff090b0e));
+    g.fillRect(meterX, meterY, meterW, meterH);
+
+    // Meter active LED bar
+    if (currentMeterLevel > 0.01f) {
+        float fillH = meterH * currentMeterLevel;
+        float fillY = meterY + meterH - fillH;
+
+        juce::ColourGradient grad(juce::Colour(0xff00e676), meterX, meterY + meterH,
+                                  juce::Colour(0xffff1744), meterX, meterY, false);
+        grad.addColour(0.7, juce::Colour(0xffffea00));
+        g.setGradientFill(grad);
+        g.fillRect(meterX, fillY, meterW, fillH);
+    }
+}
+
+void MixerChannelStrip::resized() {
+    int w = getWidth();
+    int h = getHeight();
+
+    chBadge.setBounds(2, 6, w - 4, 14);
+    nameLabel.setBounds(2, 22, w - 4, 16);
+    sectionBadge.setBounds(w / 2 - 16, 40, 32, 12);
+
+    panSlider.setBounds(w / 2 - 18, 56, 36, 36);
+
+    muteBtn.setBounds(w / 2 - 24, 96, 22, 18);
+    soloBtn.setBounds(w / 2 + 2, 96, 22, 18);
+
+    volumeSlider.setBounds(6, 124, w - 20, h - 162);
+    dbLabel.setBounds(2, h - 26, w - 4, 16);
+}
+
+// -------------------------------------------------------------
+// OrchestralMixerComponent Implementation
+// -------------------------------------------------------------
+OrchestralMixerComponent::OrchestralMixerComponent(AutomaticOrchestratorAudioProcessor& p)
+    : processor(p)
+{
+    // Build 16 orchestral channel strips
+    std::vector<Harmonic::InstrumentId> instOrder = {
+        Harmonic::InstrumentId::Violins1,
+        Harmonic::InstrumentId::Violins2,
+        Harmonic::InstrumentId::Violas,
+        Harmonic::InstrumentId::Cellos,
+        Harmonic::InstrumentId::DoubleBasses,
+        Harmonic::InstrumentId::FrenchHorns,
+        Harmonic::InstrumentId::Trumpets,
+        Harmonic::InstrumentId::Trombones,
+        Harmonic::InstrumentId::Tuba,
+        Harmonic::InstrumentId::Flutes,
+        Harmonic::InstrumentId::Oboes,
+        Harmonic::InstrumentId::Clarinets,
+        Harmonic::InstrumentId::Bassoons,
+        Harmonic::InstrumentId::Timpani,
+        Harmonic::InstrumentId::OrchestralPerc
+    };
+
+    int ch = 1;
+    for (auto id : instOrder) {
+        auto strip = std::make_unique<MixerChannelStrip>(processor, id, ch++);
+        addAndMakeVisible(*strip);
+        strips.push_back(std::move(strip));
+    }
+
+    // Channel 16: Extra
+    auto strip16 = std::make_unique<MixerChannelStrip>(processor, Harmonic::InstrumentId::Violins1, 16);
+    addAndMakeVisible(*strip16);
+    strips.push_back(std::move(strip16));
+
+    // Master Bus Controls
+    masterTitle.setFont(juce::Font(11.0f, juce::Font::bold));
+    masterTitle.setColour(juce::Label::textColourId, juce::Colour(0xff00d2ff));
+    masterTitle.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(masterTitle);
+
+    masterFader.setSliderStyle(juce::Slider::LinearVertical);
+    masterFader.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    masterFader.setRange(0.0, 1.25, 0.01);
+    masterFader.setValue(1.0);
+    masterFader.onValueChange = [this]() {
+        float val = (float)masterFader.getValue();
+        float db = (val > 0.0001f) ? (20.0f * std::log10(val)) : -60.0f;
+        if (db < -59.0f) masterDbLabel.setText("-inf dB", juce::dontSendNotification);
+        else masterDbLabel.setText(juce::String(db, 1) + " dB", juce::dontSendNotification);
+    };
+    addAndMakeVisible(masterFader);
+
+    masterDbLabel.setFont(juce::Font(10.0f, juce::Font::bold));
+    masterDbLabel.setColour(juce::Label::textColourId, juce::Colour(0xffedf2f7));
+    masterDbLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(masterDbLabel);
+
+    masterDragBtn = std::make_unique<MidiDragComponent>(processor, std::nullopt, "EXPORT MIDI");
+    addAndMakeVisible(*masterDragBtn);
+}
+
+void OrchestralMixerComponent::paint(juce::Graphics& g) {
+    g.fillAll(juce::Colour(0xff0c0e12));
+
+    // Master bus backing panel
+    int masterX = getWidth() - 95;
+    auto mBounds = juce::Rectangle<float>((float)masterX, 4.0f, 90.0f, (float)getHeight() - 8.0f);
+    g.setColour(juce::Colour(0xff161a22));
+    g.fillRoundedRectangle(mBounds, 6.0f);
+    g.setColour(juce::Colour(0xff00d2ff).withAlpha(0.6f));
+    g.drawRoundedRectangle(mBounds, 6.0f, 1.0f);
+
+    // Master Meter
+    float meterX = mBounds.getX() + mBounds.getWidth() - 16.0f;
+    float meterY = mBounds.getY() + 45.0f;
+    float meterW = 7.0f;
+    float meterH = mBounds.getHeight() - 95.0f;
+
+    g.setColour(juce::Colour(0xff090b0e));
+    g.fillRect(meterX, meterY, meterW, meterH);
+
+    if (masterMeterLevel > 0.01f) {
+        float fillH = meterH * masterMeterLevel;
+        float fillY = meterY + meterH - fillH;
+        juce::ColourGradient grad(juce::Colour(0xff00e676), meterX, meterY + meterH,
+                                  juce::Colour(0xffff1744), meterX, meterY, false);
+        grad.addColour(0.7, juce::Colour(0xffffea00));
+        g.setGradientFill(grad);
+        g.fillRect(meterX, fillY, meterW, fillH);
+    }
+}
+
+void OrchestralMixerComponent::resized() {
+    int w = getWidth();
+    int h = getHeight();
+
+    int masterW = 90;
+    int masterX = w - masterW - 4;
+
+    masterTitle.setBounds(masterX + 4, 8, masterW - 8, 18);
+    masterFader.setBounds(masterX + 8, 38, 48, h - 90);
+    masterDbLabel.setBounds(masterX + 4, h - 46, masterW - 8, 16);
+    if (masterDragBtn) {
+        masterDragBtn->setBounds(masterX + 6, h - 28, masterW - 12, 22);
+    }
+
+    // Available width for 16 strips
+    int stripsAreaW = masterX - 8;
+    int stripW = std::max(56, stripsAreaW / 16);
+
+    for (int i = 0; i < (int)strips.size(); ++i) {
+        int sx = 4 + i * stripW;
+        strips[i]->setBounds(sx, 4, stripW - 4, h - 8);
+    }
+}
+
+void OrchestralMixerComponent::refreshFromPattern(const Sequencer::OrchestralPattern& pattern) {
+    for (auto& s : strips) {
+        auto inst = s->getInstrumentId();
+        if (pattern.tracks.find(inst) != pattern.tracks.end()) {
+            s->refreshFromTrack(pattern.tracks.at(inst));
+        }
+    }
+    repaint();
+}
+
+void OrchestralMixerComponent::updateMeters(int currentStep) {
+    auto pattern = processor.getCurrentPattern();
+    float masterMax = 0.0f;
+
+    for (auto& s : strips) {
+        auto inst = s->getInstrumentId();
+        float target = 0.0f;
+        if (pattern.tracks.find(inst) != pattern.tracks.end()) {
+            const auto& trk = pattern.tracks.at(inst);
+            if (!trk.isMuted && !trk.steps.empty() && currentStep >= 0) {
+                const auto& step = trk.steps[currentStep % trk.steps.size()];
+                if (step.active && step.action != Harmonic::StepActionType::Rest) {
+                    target = (step.velocity / 127.0f) * trk.volume;
+                }
+            }
+        }
+        s->setMeterLevel(target);
+        masterMax = std::max(masterMax, target);
+    }
+
+    masterMeterLevel = masterMax;
+    repaint();
+}
+
+// -------------------------------------------------------------
 // HollywoodOrchestratorEditor Implementation
 // -------------------------------------------------------------
 HollywoodOrchestratorEditor::HollywoodOrchestratorEditor(AutomaticOrchestratorAudioProcessor& p)
@@ -522,11 +994,14 @@ HollywoodOrchestratorEditor::HollywoodOrchestratorEditor(AutomaticOrchestratorAu
 {
     // Mode toggles
     mainModeBtn.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff2d3748));
+    mainModeBtn.onClick = [this]() { updateViewMode(false); };
     addAndMakeVisible(mainModeBtn);
+
     mixerModeBtn.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff1a202c));
+    mixerModeBtn.onClick = [this]() { updateViewMode(true); };
     addAndMakeVisible(mixerModeBtn);
 
-    // Preset navigation
+    // Preset navigation & actions
     prevPresetBtn.onClick = [this]() {
         int id = presetSelector.getSelectedId();
         if (id > 1) presetSelector.setSelectedId(id - 1);
@@ -534,23 +1009,31 @@ HollywoodOrchestratorEditor::HollywoodOrchestratorEditor(AutomaticOrchestratorAu
     };
     addAndMakeVisible(prevPresetBtn);
 
-    presetSelector.addItem("Action Ostinato", 1);
-    presetSelector.addItem("Epic Brass Fanfare", 2);
-    presetSelector.addItem("Lyrical Adagio", 3);
-    presetSelector.addItem("Suspense Mystery", 4);
-    presetSelector.addItem("War Drums & Percussion", 5);
-    presetSelector.addItem("Fantasy Adventure", 6);
+    populatePresetSelector();
     presetSelector.setSelectedId(1, juce::dontSendNotification);
     presetSelector.onChange = [this]() {
         int id = presetSelector.getSelectedId();
+        if (id <= 0) return;
+
         if (id == 1) audioProcessor.setStylePattern(Sequencer::createActionOstinatoPattern());
         else if (id == 2) audioProcessor.setStylePattern(Sequencer::createEpicFanfarePattern());
         else if (id == 3) audioProcessor.setStylePattern(Sequencer::createLyricalAdagioPattern());
         else if (id == 4) audioProcessor.setStylePattern(Sequencer::createSuspenseMysteryPattern());
         else if (id == 5) audioProcessor.setStylePattern(Sequencer::createWarDrumsPattern());
         else if (id == 6) audioProcessor.setStylePattern(Sequencer::createFantasyAdventurePattern());
+        else if (id >= 100) {
+            juce::File presetDir = audioProcessor.getPresetsFolder();
+            juce::String presetName = presetSelector.getText();
+            juce::File file = presetDir.getChildFile(presetName + ".json");
+            if (file.existsAsFile()) {
+                audioProcessor.loadPresetFromFile(file);
+            }
+        }
 
         loadCurrentPatternIntoUi();
+        if (mixerComponent != nullptr && isMixerView) {
+            mixerComponent->refreshFromPattern(audioProcessor.getCurrentPattern());
+        }
     };
     addAndMakeVisible(presetSelector);
 
@@ -561,9 +1044,17 @@ HollywoodOrchestratorEditor::HollywoodOrchestratorEditor(AutomaticOrchestratorAu
     };
     addAndMakeVisible(nextPresetBtn);
 
+    savePresetBtn.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff2d3748));
+    savePresetBtn.onClick = [this]() { saveCurrentPreset(); };
+    addAndMakeVisible(savePresetBtn);
+
+    saveAsPresetBtn.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff2d3748));
+    saveAsPresetBtn.onClick = [this]() { saveAsNewPreset(); };
+    addAndMakeVisible(saveAsPresetBtn);
+
     // Live Chord Recognition Badge
     chordDisplayBadge.setText("READY", juce::dontSendNotification);
-    chordDisplayBadge.setFont(juce::Font(22.0f, juce::Font::bold));
+    chordDisplayBadge.setFont(juce::Font(20.0f, juce::Font::bold));
     chordDisplayBadge.setColour(juce::Label::textColourId, juce::Colour(0xff00d2ff)); // Neon Cyan
     chordDisplayBadge.setColour(juce::Label::backgroundColourId, juce::Colour(0xff161b22));
     chordDisplayBadge.setJustificationType(juce::Justification::centred);
@@ -648,6 +1139,10 @@ HollywoodOrchestratorEditor::HollywoodOrchestratorEditor(AutomaticOrchestratorAu
     // Left Panel Rack
     addAndMakeVisible(rackContainer);
 
+    addInstrumentBtn.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff1e232d));
+    addInstrumentBtn.setColour(juce::TextButton::textColourOffId, juce::Colour(0xff00d2ff));
+    addInstrumentBtn.onClick = [this]() { promptAddInstrument(); };
+
     // Right Panel Header
     voice1Btn.setFont(juce::Font(11.0f, juce::Font::bold));
     voice1Btn.setColour(juce::Label::backgroundColourId, juce::Colour(0xff2d3748));
@@ -708,6 +1203,10 @@ HollywoodOrchestratorEditor::HollywoodOrchestratorEditor(AutomaticOrchestratorAu
     cc1Lane = std::make_unique<Cc1LaneComponent>(audioProcessor);
     addAndMakeVisible(*cc1Lane);
 
+    // Orchestral Mixer Component
+    mixerComponent = std::make_unique<OrchestralMixerComponent>(audioProcessor);
+    addChildComponent(*mixerComponent);
+
     // Bottom Bar
     velocityLabel.setFont(juce::Font(10.0f, juce::Font::bold));
     velocityLabel.setColour(juce::Label::textColourId, juce::Colour(0xffa0aec0));
@@ -739,6 +1238,7 @@ HollywoodOrchestratorEditor::HollywoodOrchestratorEditor(AutomaticOrchestratorAu
 
     // Initial section build
     switchSection(Harmonic::OrchestralSection::Strings);
+    updateViewMode(false);
 
     setSize(1080, 720);
     startTimerHz(30);
@@ -746,6 +1246,179 @@ HollywoodOrchestratorEditor::HollywoodOrchestratorEditor(AutomaticOrchestratorAu
 
 HollywoodOrchestratorEditor::~HollywoodOrchestratorEditor() {
     stopTimer();
+}
+
+void HollywoodOrchestratorEditor::updateViewMode(bool mixerView) {
+    isMixerView = mixerView;
+
+    mainModeBtn.setColour(juce::TextButton::buttonColourId, isMixerView ? juce::Colour(0xff1a202c) : juce::Colour(0xff2d3748));
+    mainModeBtn.setColour(juce::TextButton::textColourOffId, isMixerView ? juce::Colour(0xff718096) : juce::Colours::white);
+
+    mixerModeBtn.setColour(juce::TextButton::buttonColourId, isMixerView ? juce::Colour(0xff2d3748) : juce::Colour(0xff1a202c));
+    mixerModeBtn.setColour(juce::TextButton::textColourOffId, isMixerView ? juce::Colours::white : juce::Colour(0xff718096));
+
+    if (mixerComponent != nullptr) {
+        mixerComponent->setVisible(isMixerView);
+        if (isMixerView) {
+            mixerComponent->refreshFromPattern(audioProcessor.getCurrentPattern());
+        }
+    }
+
+    // Toggle Arranger Main View components
+    bool showArranger = !isMixerView;
+    woodwindsTab.setVisible(showArranger);
+    woodwindsMuteBtn.setVisible(showArranger);
+    woodwindsSoloBtn.setVisible(showArranger);
+    brassTab.setVisible(showArranger);
+    brassMuteBtn.setVisible(showArranger);
+    brassSoloBtn.setVisible(showArranger);
+    percussionTab.setVisible(showArranger);
+    percussionMuteBtn.setVisible(showArranger);
+    percussionSoloBtn.setVisible(showArranger);
+    stringsTab.setVisible(showArranger);
+    stringsMuteBtn.setVisible(showArranger);
+    stringsSoloBtn.setVisible(showArranger);
+
+    rackContainer.setVisible(showArranger);
+    voice1Btn.setVisible(showArranger);
+    voice2Btn.setVisible(showArranger);
+    activeInstrumentTitle.setVisible(showArranger);
+    noteGridBox.setVisible(showArranger);
+    pencilBtn.setVisible(showArranger);
+    eraserBtn.setVisible(showArranger);
+    clearBtn.setVisible(showArranger);
+    if (stepGrid != nullptr) stepGrid->setVisible(showArranger);
+    if (cc1Lane != nullptr) cc1Lane->setVisible(showArranger);
+
+    resized();
+    repaint();
+}
+
+void HollywoodOrchestratorEditor::populatePresetSelector() {
+    presetSelector.clear(juce::dontSendNotification);
+
+    // Factory Presets
+    presetSelector.addItem("Action Ostinato", 1);
+    presetSelector.addItem("Epic Brass Fanfare", 2);
+    presetSelector.addItem("Lyrical Adagio", 3);
+    presetSelector.addItem("Suspense Mystery", 4);
+    presetSelector.addItem("War Drums & Percussion", 5);
+    presetSelector.addItem("Fantasy Adventure", 6);
+
+    // User Presets from presets directory
+    juce::File presetDir = audioProcessor.getPresetsFolder();
+    juce::Array<juce::File> files = presetDir.findChildFiles(juce::File::findFiles, false, "*.json");
+
+    int userPresetId = 100;
+    for (const auto& f : files) {
+        presetSelector.addItem(f.getFileNameWithoutExtension(), userPresetId++);
+    }
+}
+
+void HollywoodOrchestratorEditor::saveCurrentPreset() {
+    int id = presetSelector.getSelectedId();
+    juce::String currentName = presetSelector.getText();
+
+    if (id >= 100 && currentName.isNotEmpty()) {
+        juce::File presetDir = audioProcessor.getPresetsFolder();
+        juce::File file = presetDir.getChildFile(currentName + ".json");
+        audioProcessor.savePresetToFile(file, currentName);
+    } else {
+        saveAsNewPreset();
+    }
+}
+
+void HollywoodOrchestratorEditor::saveAsNewPreset() {
+    auto* aw = new juce::AlertWindow("Save Orchestral Preset", "Enter a name for the new preset:", juce::AlertWindow::QuestionIcon);
+    aw->addTextEditor("presetName", presetSelector.getText().isEmpty() ? "Custom Preset" : presetSelector.getText());
+    aw->addButton("Save", 1, juce::KeyPress(juce::KeyPress::returnKey));
+    aw->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+
+    aw->enterModalState(true, juce::ModalCallbackFunction::create([this, aw](int result) {
+        if (result == 1) {
+            juce::String name = aw->getTextEditorContents("presetName").trim();
+            if (name.isNotEmpty()) {
+                juce::File presetDir = audioProcessor.getPresetsFolder();
+                juce::File file = presetDir.getChildFile(name + ".json");
+                audioProcessor.savePresetToFile(file, name);
+                populatePresetSelector();
+                presetSelector.setText(name, juce::dontSendNotification);
+            }
+        }
+    }), true);
+}
+
+void HollywoodOrchestratorEditor::promptAddInstrument() {
+    juce::PopupMenu menu;
+
+    juce::String secName = (activeSection == Harmonic::OrchestralSection::Strings) ? "Strings" :
+                           (activeSection == Harmonic::OrchestralSection::Brass) ? "Brass" :
+                           (activeSection == Harmonic::OrchestralSection::Woodwinds) ? "Woodwinds" : "Percussion";
+    menu.addSectionHeader("Add Instrument to " + secName);
+
+    struct InstOption {
+        Harmonic::InstrumentId id;
+        Harmonic::OrchestralSection sec;
+    };
+
+    std::vector<InstOption> options = {
+        {Harmonic::InstrumentId::Violins1, Harmonic::OrchestralSection::Strings},
+        {Harmonic::InstrumentId::Violins2, Harmonic::OrchestralSection::Strings},
+        {Harmonic::InstrumentId::Violas, Harmonic::OrchestralSection::Strings},
+        {Harmonic::InstrumentId::Cellos, Harmonic::OrchestralSection::Strings},
+        {Harmonic::InstrumentId::DoubleBasses, Harmonic::OrchestralSection::Strings},
+
+        {Harmonic::InstrumentId::FrenchHorns, Harmonic::OrchestralSection::Brass},
+        {Harmonic::InstrumentId::Trumpets, Harmonic::OrchestralSection::Brass},
+        {Harmonic::InstrumentId::Trombones, Harmonic::OrchestralSection::Brass},
+        {Harmonic::InstrumentId::Tuba, Harmonic::OrchestralSection::Brass},
+
+        {Harmonic::InstrumentId::Flutes, Harmonic::OrchestralSection::Woodwinds},
+        {Harmonic::InstrumentId::Oboes, Harmonic::OrchestralSection::Woodwinds},
+        {Harmonic::InstrumentId::Clarinets, Harmonic::OrchestralSection::Woodwinds},
+        {Harmonic::InstrumentId::Bassoons, Harmonic::OrchestralSection::Woodwinds},
+
+        {Harmonic::InstrumentId::Timpani, Harmonic::OrchestralSection::Percussion},
+        {Harmonic::InstrumentId::OrchestralPerc, Harmonic::OrchestralSection::Percussion}
+    };
+
+    int menuId = 1;
+    std::map<int, Harmonic::InstrumentId> idMap;
+
+    for (const auto& opt : options) {
+        if (opt.sec == activeSection) {
+            menu.addItem(menuId, Harmonic::instrumentToString(opt.id));
+            idMap[menuId] = opt.id;
+            menuId++;
+        }
+    }
+
+    juce::PopupMenu otherMenu;
+    for (const auto& opt : options) {
+        if (opt.sec != activeSection) {
+            otherMenu.addItem(menuId, Harmonic::instrumentToString(opt.id));
+            idMap[menuId] = opt.id;
+            menuId++;
+        }
+    }
+    menu.addSubMenu("Other Orchestral Instruments", otherMenu);
+
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&addInstrumentBtn),
+        [this, idMap](int result) {
+            if (result <= 0) return;
+            auto it = idMap.find(result);
+            if (it != idMap.end()) {
+                Harmonic::InstrumentId inst = it->second;
+                int defaultChan = Harmonic::getDefaultInstrumentChannel(inst);
+                audioProcessor.addTrack(inst, Harmonic::instrumentToString(inst), activeSection, defaultChan, Harmonic::ArticulationType::Sustain);
+                switchSection(activeSection);
+                selectInstrument(inst);
+                loadCurrentPatternIntoUi();
+                if (mixerComponent != nullptr && isMixerView) {
+                    mixerComponent->refreshFromPattern(audioProcessor.getCurrentPattern());
+                }
+            }
+        });
 }
 
 void HollywoodOrchestratorEditor::switchSection(Harmonic::OrchestralSection section) {
@@ -760,34 +1433,44 @@ void HollywoodOrchestratorEditor::switchSection(Harmonic::OrchestralSection sect
     // Clear and repopulate instrument rack for active section
     instrumentRows.clear();
 
+    auto pat = audioProcessor.getCurrentPattern();
     std::vector<Harmonic::InstrumentId> insts;
-    if (section == Harmonic::OrchestralSection::Strings) {
-        insts = {
-            Harmonic::InstrumentId::Violins1,
-            Harmonic::InstrumentId::Violins2,
-            Harmonic::InstrumentId::Violas,
-            Harmonic::InstrumentId::Cellos,
-            Harmonic::InstrumentId::DoubleBasses
-        };
-    } else if (section == Harmonic::OrchestralSection::Brass) {
-        insts = {
-            Harmonic::InstrumentId::FrenchHorns,
-            Harmonic::InstrumentId::Trumpets,
-            Harmonic::InstrumentId::Trombones,
-            Harmonic::InstrumentId::Tuba
-        };
-    } else if (section == Harmonic::OrchestralSection::Woodwinds) {
-        insts = {
-            Harmonic::InstrumentId::Flutes,
-            Harmonic::InstrumentId::Oboes,
-            Harmonic::InstrumentId::Clarinets,
-            Harmonic::InstrumentId::Bassoons
-        };
-    } else {
-        insts = {
-            Harmonic::InstrumentId::Timpani,
-            Harmonic::InstrumentId::OrchestralPerc
-        };
+
+    for (const auto& [inst, trk] : pat.tracks) {
+        if (trk.section == section) {
+            insts.push_back(inst);
+        }
+    }
+
+    if (insts.empty()) {
+        if (section == Harmonic::OrchestralSection::Strings) {
+            insts = {
+                Harmonic::InstrumentId::Violins1,
+                Harmonic::InstrumentId::Violins2,
+                Harmonic::InstrumentId::Violas,
+                Harmonic::InstrumentId::Cellos,
+                Harmonic::InstrumentId::DoubleBasses
+            };
+        } else if (section == Harmonic::OrchestralSection::Brass) {
+            insts = {
+                Harmonic::InstrumentId::FrenchHorns,
+                Harmonic::InstrumentId::Trumpets,
+                Harmonic::InstrumentId::Trombones,
+                Harmonic::InstrumentId::Tuba
+            };
+        } else if (section == Harmonic::OrchestralSection::Woodwinds) {
+            insts = {
+                Harmonic::InstrumentId::Flutes,
+                Harmonic::InstrumentId::Oboes,
+                Harmonic::InstrumentId::Clarinets,
+                Harmonic::InstrumentId::Bassoons
+            };
+        } else {
+            insts = {
+                Harmonic::InstrumentId::Timpani,
+                Harmonic::InstrumentId::OrchestralPerc
+            };
+        }
     }
 
     for (auto id : insts) {
@@ -797,6 +1480,8 @@ void HollywoodOrchestratorEditor::switchSection(Harmonic::OrchestralSection sect
         rackContainer.addAndMakeVisible(*row);
         instrumentRows.push_back(std::move(row));
     }
+
+    rackContainer.addAndMakeVisible(addInstrumentBtn);
 
     if (!insts.empty()) {
         selectInstrument(insts.front());
@@ -867,6 +1552,9 @@ void HollywoodOrchestratorEditor::timerCallback() {
     if (stepGrid != nullptr) {
         stepGrid->setCurrentStep(step);
     }
+    if (mixerComponent != nullptr && isMixerView) {
+        mixerComponent->updateMeters(step);
+    }
 }
 
 void HollywoodOrchestratorEditor::paint(juce::Graphics& g) {
@@ -889,11 +1577,13 @@ void HollywoodOrchestratorEditor::paint(juce::Graphics& g) {
     g.setFont(juce::Font(9.5f, juce::Font::bold));
     g.drawText("PRO ORCHESTRAL MIDI ARRANGER", 15, 29, 220, 15, juce::Justification::left);
 
-    // Section bar background
-    g.setColour(juce::Colour(0xff14171e));
-    g.fillRect(0, 79, getWidth(), 34);
-    g.setColour(juce::Colour(0xff232730));
-    g.drawHorizontalLine(113, 0.0f, (float)getWidth());
+    // Section bar background (only in main view)
+    if (!isMixerView) {
+        g.setColour(juce::Colour(0xff14171e));
+        g.fillRect(0, 79, getWidth(), 34);
+        g.setColour(juce::Colour(0xff232730));
+        g.drawHorizontalLine(113, 0.0f, (float)getWidth());
+    }
 
     // Bottom Branding
     g.setColour(juce::Colour(0xff4a5568));
@@ -906,78 +1596,88 @@ void HollywoodOrchestratorEditor::resized() {
     int h = getHeight();
 
     // Top Row Controls
-    mainModeBtn.setBounds(15, 48, 55, 22);
-    mixerModeBtn.setBounds(75, 48, 55, 22);
+    mainModeBtn.setBounds(15, 48, 50, 22);
+    mixerModeBtn.setBounds(68, 48, 50, 22);
 
-    prevPresetBtn.setBounds(145, 48, 25, 22);
-    presetSelector.setBounds(172, 48, 180, 22);
-    nextPresetBtn.setBounds(354, 48, 25, 22);
+    prevPresetBtn.setBounds(124, 48, 22, 22);
+    presetSelector.setBounds(148, 48, 145, 22);
+    nextPresetBtn.setBounds(295, 48, 22, 22);
 
-    chordDisplayBadge.setBounds(w / 2 - 80, 15, 160, 48);
+    savePresetBtn.setBounds(320, 48, 45, 22);
+    saveAsPresetBtn.setBounds(368, 48, 68, 22);
+
+    chordDisplayBadge.setBounds(w / 2 - 75, 15, 150, 48);
     tempoBadge.setBounds(w - 380, 48, 75, 22);
     librarySelector.setBounds(w - 295, 48, 175, 22);
     voicingSelector.setBounds(w - 110, 48, 95, 22);
 
-    // Section Tabs Row (Y = 82)
-    int tabW = (w - 20) / 4;
-    woodwindsTab.setBounds(10, 83, tabW - 55, 26);
-    woodwindsMuteBtn.setBounds(10 + tabW - 50, 85, 20, 22);
-    woodwindsSoloBtn.setBounds(10 + tabW - 26, 85, 20, 22);
+    if (isMixerView) {
+        if (mixerComponent != nullptr) {
+            mixerComponent->setBounds(10, 82, w - 20, h - 82 - 62);
+        }
+    } else {
+        // Section Tabs Row (Y = 82)
+        int tabW = (w - 20) / 4;
+        woodwindsTab.setBounds(10, 83, tabW - 55, 26);
+        woodwindsMuteBtn.setBounds(10 + tabW - 50, 85, 20, 22);
+        woodwindsSoloBtn.setBounds(10 + tabW - 26, 85, 20, 22);
 
-    brassTab.setBounds(10 + tabW, 83, tabW - 55, 26);
-    brassMuteBtn.setBounds(10 + tabW + tabW - 50, 85, 20, 22);
-    brassSoloBtn.setBounds(10 + tabW + tabW - 26, 85, 20, 22);
+        brassTab.setBounds(10 + tabW, 83, tabW - 55, 26);
+        brassMuteBtn.setBounds(10 + tabW + tabW - 50, 85, 20, 22);
+        brassSoloBtn.setBounds(10 + tabW + tabW - 26, 85, 20, 22);
 
-    percussionTab.setBounds(10 + tabW * 2, 83, tabW - 55, 26);
-    percussionMuteBtn.setBounds(10 + tabW * 2 + tabW - 50, 85, 20, 22);
-    percussionSoloBtn.setBounds(10 + tabW * 2 + tabW - 26, 85, 20, 22);
+        percussionTab.setBounds(10 + tabW * 2, 83, tabW - 55, 26);
+        percussionMuteBtn.setBounds(10 + tabW * 2 + tabW - 50, 85, 20, 22);
+        percussionSoloBtn.setBounds(10 + tabW * 2 + tabW - 26, 85, 20, 22);
 
-    stringsTab.setBounds(10 + tabW * 3, 83, tabW - 55, 26);
-    stringsMuteBtn.setBounds(10 + tabW * 3 + tabW - 50, 85, 20, 22);
-    stringsSoloBtn.setBounds(10 + tabW * 3 + tabW - 26, 85, 20, 22);
+        stringsTab.setBounds(10 + tabW * 3, 83, tabW - 55, 26);
+        stringsMuteBtn.setBounds(10 + tabW * 3 + tabW - 50, 85, 20, 22);
+        stringsSoloBtn.setBounds(10 + tabW * 3 + tabW - 26, 85, 20, 22);
 
-    // Main Area: Left Rack (~360px) and Right Step Arranger
-    int contentY = 118;
-    int contentH = h - contentY - 68;
-    int rackW = 350;
+        // Main Area: Left Rack (~350px) and Right Step Arranger
+        int contentY = 118;
+        int contentH = h - contentY - 68;
+        int rackW = 350;
 
-    rackContainer.setBounds(10, contentY, rackW, contentH);
-    int rowY = 0;
-    int rowH = 92;
-    for (auto& row : instrumentRows) {
-        if (row != nullptr) {
-            row->setBounds(0, rowY, rackW, rowH);
-            rowY += rowH + 4;
+        rackContainer.setBounds(10, contentY, rackW, contentH);
+        int rowY = 0;
+        int rowH = 92;
+        for (auto& row : instrumentRows) {
+            if (row != nullptr) {
+                row->setBounds(0, rowY, rackW, rowH);
+                rowY += rowH + 4;
+            }
+        }
+        addInstrumentBtn.setBounds(0, rowY + 2, rackW, 24);
+
+        // Right Step Arranger Area
+        int rightX = rackW + 20;
+        int rightW = w - rightX - 10;
+
+        // Header controls for step grid
+        voice1Btn.setBounds(rightX, contentY, 60, 22);
+        voice2Btn.setBounds(rightX + 65, contentY, 60, 22);
+        activeInstrumentTitle.setBounds(rightX + 135, contentY, 200, 22);
+
+        noteGridBox.setBounds(rightX + rightW - 220, contentY, 65, 22);
+        pencilBtn.setBounds(rightX + rightW - 150, contentY, 45, 22);
+        eraserBtn.setBounds(rightX + rightW - 100, contentY, 45, 22);
+        clearBtn.setBounds(rightX + rightW - 50, contentY, 45, 22);
+
+        // Step grid and CC1 lane
+        int laneH = 65;
+        int gridY = contentY + 28;
+        int gridH = contentH - 28 - laneH - 6;
+
+        if (stepGrid != nullptr) {
+            stepGrid->setBounds(rightX, gridY, rightW, gridH);
+        }
+        if (cc1Lane != nullptr) {
+            cc1Lane->setBounds(rightX, gridY + gridH + 6, rightW, laneH);
         }
     }
 
-    // Right Step Arranger Area
-    int rightX = rackW + 20;
-    int rightW = w - rightX - 10;
-
-    // Header controls for step grid
-    voice1Btn.setBounds(rightX, contentY, 60, 22);
-    voice2Btn.setBounds(rightX + 65, contentY, 60, 22);
-    activeInstrumentTitle.setBounds(rightX + 135, contentY, 200, 22);
-
-    noteGridBox.setBounds(rightX + rightW - 220, contentY, 65, 22);
-    pencilBtn.setBounds(rightX + rightW - 150, contentY, 45, 22);
-    eraserBtn.setBounds(rightX + rightW - 100, contentY, 45, 22);
-    clearBtn.setBounds(rightX + rightW - 50, contentY, 45, 22);
-
-    // Step grid and CC1 lane
-    int laneH = 65;
-    int gridY = contentY + 28;
-    int gridH = contentH - 28 - laneH - 6;
-
-    if (stepGrid != nullptr) {
-        stepGrid->setBounds(rightX, gridY, rightW, gridH);
-    }
-    if (cc1Lane != nullptr) {
-        cc1Lane->setBounds(rightX, gridY + gridH + 6, rightW, laneH);
-    }
-
-    // Bottom Bar (Y = h - 60)
+    // Bottom Bar (Y = h - 56)
     int bottomY = h - 56;
     velocityLabel.setBounds(15, bottomY + 2, 60, 18);
     velocitySlider.setBounds(75, bottomY, 180, 22);

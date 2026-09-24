@@ -23,3 +23,9 @@
 | Task 22: Fix Drag & Drop for DAW Timeline Export | Done | Clean single-latch file drag gesture, fallback Cmaj7 voicing, export valid SMF file |
 | Task 23: Rename Plugin & Repository to "Automatic Orchestrator" | Done | Targets, bundles, UI titles, GitHub repo & remotes renamed to Automatic Orchestrator |
 | Task 24: Test Suite Verification, Local Installation & GitHub v2.0.0 Release | Done | 27/27 tests passing, local VST3 & App installed, GitHub v2.0.0 release published |
+| Task 25: Resizable MIDI Note Events (Duration / Length & Edge Dragging) | Done | Drag handles on right edge, configurable step lengths (1-16), sustained playback & SMF export |
+| Task 26: Fix Articulation Mapping per Instrument & Empty Track Editing | Done | Dedicated profile lookup per instrument; auto-creation for empty tracks on any parameter edit |
+| Task 27: Preset Manager & Full DAW State Serialization | Done | Full JSON serialization, Save / Save As / Load user presets, getStateInformation/setStateInformation |
+| Task 28: Dynamic Section Track Management (+ Add / Remove Instrument) | Done | Dynamic + Add Instrument popup menu, custom channel & articulation initialization |
+| Task 29: Multi-Track Ghost Notes Overlay & Section Transparency Palette | Done | Translucent ghost notes rendered in StepGrid for all other instruments in active section |
+| Task 30: Interactive Orchestral MIXER View vs MAIN Arranger View | Done | Full view switching: MAIN Arranger & 16-channel MIXER console with animated LED meters, faders, pan |

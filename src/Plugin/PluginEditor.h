@@ -74,6 +74,8 @@ public:
     void paint(juce::Graphics& g) override;
     void mouseDown(const juce::MouseEvent& e) override;
     void mouseDrag(const juce::MouseEvent& e) override;
+    void mouseMove(const juce::MouseEvent& e) override;
+    void mouseUp(const juce::MouseEvent& e) override;
 
     void setActiveInstrument(Harmonic::InstrumentId inst);
     Harmonic::InstrumentId getActiveInstrument() const { return activeInstrument; }
@@ -91,6 +93,12 @@ private:
     int currentStep = -1;
     int currentTool = 0; // 0 = Pencil, 1 = Eraser
     int noteVelocity = 100;
+
+    // Note Resizing State
+    bool isResizing = false;
+    int resizeStep = -1;
+    int originalLength = 1;
+    float dragStartX = 0.0f;
 
     static constexpr int numPitchRows = 18; // +9 down to -8
     static constexpr int numSteps = 16;
@@ -131,6 +139,64 @@ private:
 };
 
 // -------------------------------------------------------------
+// MixerChannelStrip: Single channel console strip
+// -------------------------------------------------------------
+class MixerChannelStrip : public juce::Component {
+public:
+    MixerChannelStrip(AutomaticOrchestratorAudioProcessor& p, Harmonic::InstrumentId instId, int chNum);
+    ~MixerChannelStrip() override = default;
+
+    void paint(juce::Graphics& g) override;
+    void resized() override;
+    void refreshFromTrack(const Sequencer::TrackPattern& track);
+    void setMeterLevel(float level);
+
+    Harmonic::InstrumentId getInstrumentId() const { return instrument; }
+    int getMidiChannel() const { return channelNumber; }
+
+private:
+    AutomaticOrchestratorAudioProcessor& processor;
+    Harmonic::InstrumentId instrument;
+    int channelNumber;
+
+    juce::Label chBadge;
+    juce::Label nameLabel;
+    juce::Label sectionBadge;
+    juce::Slider panSlider;
+    juce::TextButton muteBtn{"M"};
+    juce::TextButton soloBtn{"S"};
+    juce::Slider volumeSlider;
+    juce::Label dbLabel;
+
+    float currentMeterLevel = 0.0f;
+};
+
+// -------------------------------------------------------------
+// OrchestralMixerComponent: 16-Channel Console + Master Strip
+// -------------------------------------------------------------
+class OrchestralMixerComponent : public juce::Component {
+public:
+    explicit OrchestralMixerComponent(AutomaticOrchestratorAudioProcessor& p);
+    ~OrchestralMixerComponent() override = default;
+
+    void paint(juce::Graphics& g) override;
+    void resized() override;
+    void refreshFromPattern(const Sequencer::OrchestralPattern& pattern);
+    void updateMeters(int currentStep);
+
+private:
+    AutomaticOrchestratorAudioProcessor& processor;
+    std::vector<std::unique_ptr<MixerChannelStrip>> strips;
+
+    // Master Bus Controls
+    juce::Label masterTitle{"MASTER"};
+    juce::Slider masterFader;
+    juce::Label masterDbLabel{"0.0 dB"};
+    std::unique_ptr<MidiDragComponent> masterDragBtn;
+    float masterMeterLevel = 0.0f;
+};
+
+// -------------------------------------------------------------
 // AutomaticOrchestratorEditor (Full Hollywood Orchestrator UI)
 // -------------------------------------------------------------
 class HollywoodOrchestratorEditor : public juce::AudioProcessorEditor,
@@ -147,6 +213,10 @@ public:
 private:
     AutomaticOrchestratorAudioProcessor& audioProcessor;
 
+    // View Mode
+    bool isMixerView = false;
+    void updateViewMode(bool mixerView);
+
     // Top Bar Controls
     juce::TextButton mainModeBtn{"MAIN"};
     juce::TextButton mixerModeBtn{"MIXER"};
@@ -154,6 +224,8 @@ private:
     juce::TextButton prevPresetBtn{"<"};
     juce::ComboBox presetSelector;
     juce::TextButton nextPresetBtn{">"};
+    juce::TextButton savePresetBtn{"SAVE"};
+    juce::TextButton saveAsPresetBtn{"SAVE AS..."};
 
     juce::Label chordDisplayBadge;
     juce::Label tempoBadge;
@@ -179,6 +251,7 @@ private:
     // Left Panel: Instrument Rack
     juce::Component rackContainer;
     std::vector<std::unique_ptr<InstrumentRowComponent>> instrumentRows;
+    juce::TextButton addInstrumentBtn{"+ Add Instrument"};
     Harmonic::InstrumentId selectedInstrument = Harmonic::InstrumentId::Violins2;
 
     // Right Panel: Step Arranger
@@ -193,6 +266,9 @@ private:
     std::unique_ptr<StepGridComponent> stepGrid;
     std::unique_ptr<Cc1LaneComponent> cc1Lane;
 
+    // Orchestral Mixer Component
+    std::unique_ptr<OrchestralMixerComponent> mixerComponent;
+
     // Bottom Bar Controls
     juce::Label velocityLabel{"VELOCITY"};
     juce::Slider velocitySlider;
@@ -203,6 +279,11 @@ private:
     void switchSection(Harmonic::OrchestralSection section);
     void selectInstrument(Harmonic::InstrumentId inst);
     void loadCurrentPatternIntoUi();
+    void populatePresetSelector();
+    void saveCurrentPreset();
+    void saveAsNewPreset();
+    void promptAddInstrument();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(HollywoodOrchestratorEditor)
 };
+

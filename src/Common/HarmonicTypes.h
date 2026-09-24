@@ -140,6 +140,8 @@ std::string scaleModeToString(ScaleMode m);
 std::string instrumentToString(InstrumentId id);
 std::string articulationToString(ArticulationType art);
 std::vector<int> getScaleModeIntervals(ScaleMode mode);
+OrchestralSection getInstrumentSection(InstrumentId id);
+int getDefaultInstrumentChannel(InstrumentId id);
 
 std::ostream& operator<<(std::ostream& os, ChordQuality q);
 std::ostream& operator<<(std::ostream& os, ScaleMode m);

@@ -16,6 +16,7 @@ struct ScheduledMidiEvent {
     bool isNoteOn = true;
     bool isController = false; // if true, pitch is CC number and velocity is CC value
     Harmonic::ArticulationType articulation = Harmonic::ArticulationType::Sustain;
+    Harmonic::InstrumentId instrument = Harmonic::InstrumentId::Violins1;
 };
 
 class SequencerEngine {
@@ -32,13 +33,18 @@ public:
 
     // Dynamic Track & Step Editing
     void setTrackStep(Harmonic::InstrumentId inst, int stepIndex, bool active, int stepOffset, int velocity, Harmonic::ArticulationType art);
+    void setTrackStepLength(Harmonic::InstrumentId inst, int stepIndex, int lengthSteps);
     void setTrackArticulation(Harmonic::InstrumentId inst, Harmonic::ArticulationType art);
     void setTrackMode(Harmonic::InstrumentId inst, const std::string& mode);
     void setTrackOctave(Harmonic::InstrumentId inst, int octave);
     void setTrackVolume(Harmonic::InstrumentId inst, float vol);
+    void setTrackPan(Harmonic::InstrumentId inst, float pan);
     void setTrackMute(Harmonic::InstrumentId inst, bool mute);
     void setTrackSolo(Harmonic::InstrumentId inst, bool solo);
     void setTrackCc1(Harmonic::InstrumentId inst, int stepIndex, int cc1Val);
+
+    void addTrack(Harmonic::InstrumentId inst, const std::string& name, Harmonic::OrchestralSection sec, int channel, Harmonic::ArticulationType art);
+    void removeTrack(Harmonic::InstrumentId inst);
 
     int getCurrentStep() const { return currentStep; }
 
@@ -71,6 +77,7 @@ private:
 
     int computeRelativeStepPitch(Harmonic::InstrumentId inst, const TrackPattern& track, const StepDefinition& stepDef, int basePitch);
     int computeArpPitch(Harmonic::InstrumentId inst, Harmonic::StepActionType action, int basePitch);
+    TrackPattern& ensureTrackExistsLocked(Harmonic::InstrumentId inst);
 };
 
 } // namespace Sequencer

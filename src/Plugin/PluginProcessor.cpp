@@ -129,17 +129,14 @@ void AutomaticOrchestratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
             // CC Event (e.g. CC1 Dynamics automation)
             midiMessages.addEvent(juce::MidiMessage::controllerEvent(evt.channel, evt.pitch, (juce::uint8)evt.velocity), samplePos);
         } else if (evt.isNoteOn) {
-            // Inject Articulation Switch (CC58 / UACC / Keyswitch)
-            for (const auto& [instId, instProf] : activeLibrary.instruments) {
-                auto trig = instProf.getTrigger(evt.articulation);
-                if (trig.method == Articulation::TriggerMethod::ContinuousController) {
-                    midiMessages.addEvent(juce::MidiMessage::controllerEvent(evt.channel, trig.param1, (juce::uint8)trig.param2), samplePos);
-                    break;
-                } else if (trig.method == Articulation::TriggerMethod::Keyswitch) {
-                    midiMessages.addEvent(juce::MidiMessage::noteOn(evt.channel, trig.param1, (juce::uint8)100), samplePos);
-                    midiMessages.addEvent(juce::MidiMessage::noteOff(evt.channel, trig.param1, (juce::uint8)0), samplePos);
-                    break;
-                }
+            // Inject Articulation Switch for this specific instrument profile
+            const auto& prof = activeLibrary.getInstrumentProfile(evt.instrument);
+            auto trig = prof.getTrigger(evt.articulation);
+            if (trig.method == Articulation::TriggerMethod::ContinuousController) {
+                midiMessages.addEvent(juce::MidiMessage::controllerEvent(evt.channel, trig.param1, (juce::uint8)trig.param2), samplePos);
+            } else if (trig.method == Articulation::TriggerMethod::Keyswitch) {
+                midiMessages.addEvent(juce::MidiMessage::noteOn(evt.channel, trig.param1, (juce::uint8)100), samplePos);
+                midiMessages.addEvent(juce::MidiMessage::noteOff(evt.channel, trig.param1, (juce::uint8)0), samplePos);
             }
 
             // Note On
@@ -159,8 +156,69 @@ bool AutomaticOrchestratorAudioProcessor::hasEditor() const {
     return true;
 }
 
-void AutomaticOrchestratorAudioProcessor::getStateInformation(juce::MemoryBlock&) {}
-void AutomaticOrchestratorAudioProcessor::setStateInformation(const void*, int) {}
+void AutomaticOrchestratorAudioProcessor::getStateInformation(juce::MemoryBlock& destData) {
+    juce::DynamicObject::Ptr stateObj = new juce::DynamicObject();
+    stateObj->setProperty("version", 2);
+    stateObj->setProperty("scaleMode", static_cast<int>(currentScaleMode.load()));
+    stateObj->setProperty("voicingStyle", static_cast<int>(currentVoicingStyle.load()));
+    stateObj->setProperty("modalSnapping", modalSnappingEnabled.load());
+    stateObj->setProperty("tempo", sequencerEngine.getTempo());
+
+    std::string patternJson = sequencerEngine.getPattern().toJson();
+    stateObj->setProperty("patternJson", juce::String(patternJson));
+
+    juce::var stateVar(stateObj.get());
+    juce::MemoryOutputStream stream(destData, false);
+    juce::JSON::writeToStream(stream, stateVar);
+}
+
+void AutomaticOrchestratorAudioProcessor::setStateInformation(const void* data, int sizeInBytes) {
+    auto stateVar = juce::JSON::parse(juce::String::createStringFromData(data, sizeInBytes));
+    if (stateVar.isObject()) {
+        if (stateVar.hasProperty("scaleMode")) {
+            currentScaleMode.store(static_cast<Harmonic::ScaleMode>(static_cast<int>(stateVar["scaleMode"])));
+        }
+        if (stateVar.hasProperty("voicingStyle")) {
+            currentVoicingStyle.store(static_cast<Orchestration::VoicingStyle>(static_cast<int>(stateVar["voicingStyle"])));
+        }
+        if (stateVar.hasProperty("modalSnapping")) {
+            modalSnappingEnabled.store(static_cast<bool>(stateVar["modalSnapping"]));
+        }
+        if (stateVar.hasProperty("tempo")) {
+            sequencerEngine.setTempo(static_cast<double>(stateVar["tempo"]));
+        }
+        if (stateVar.hasProperty("patternJson")) {
+            std::string pJson = stateVar["patternJson"].toString().toStdString();
+            if (!pJson.empty()) {
+                sequencerEngine.setPattern(Sequencer::OrchestralPattern::fromJson(pJson));
+            }
+        }
+    }
+}
+
+juce::File AutomaticOrchestratorAudioProcessor::getPresetsFolder() const {
+    auto dir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+                   .getChildFile("Application Support/Automatic Orchestrator/Presets");
+    if (!dir.exists()) {
+        dir.createDirectory();
+    }
+    return dir;
+}
+
+bool AutomaticOrchestratorAudioProcessor::savePresetToFile(const juce::File& file, const juce::String& presetName) {
+    auto pat = sequencerEngine.getPattern();
+    if (presetName.isNotEmpty()) {
+        pat.name = presetName.toStdString();
+    }
+    return pat.saveToFile(file.getFullPathName().toStdString());
+}
+
+bool AutomaticOrchestratorAudioProcessor::loadPresetFromFile(const juce::File& file) {
+    if (!file.existsAsFile()) return false;
+    auto pat = Sequencer::OrchestralPattern::loadFromFile(file.getFullPathName().toStdString());
+    setStylePattern(pat);
+    return true;
+}
 
 void AutomaticOrchestratorAudioProcessor::setScaleMode(Harmonic::ScaleMode mode) {
     currentScaleMode.store(mode);

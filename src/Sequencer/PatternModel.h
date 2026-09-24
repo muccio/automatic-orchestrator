@@ -10,8 +10,9 @@ namespace Sequencer {
 struct StepDefinition {
     bool active = true;
     int stepOffset = 0; // Relative pitch step: e.g. -8 to +9 (0 = Lowest / Root chord tone)
+    int lengthSteps = 1; // Duration in 16th steps (1 to 16)
     int velocity = 100; // 1 to 127
-    double gate = 0.6;  // duration fraction
+    double gate = 0.85;  // duration fraction of total length
     int octaveOffset = 0; // -2 to +2 octaves
     Harmonic::StepActionType action = Harmonic::StepActionType::Ostinato;
     Harmonic::ArticulationType articulation = Harmonic::ArticulationType::Spiccato;
@@ -20,10 +21,13 @@ struct StepDefinition {
 struct TrackPattern {
     Harmonic::InstrumentId instrument = Harmonic::InstrumentId::Violins1;
     std::string trackName;
+    Harmonic::OrchestralSection section = Harmonic::OrchestralSection::Strings;
+    int midiChannel = 1;             // 1 to 16
     Harmonic::ArticulationType articulation = Harmonic::ArticulationType::Spiccato;
     std::string arrangerMode = "Top"; // "Top", "Lowest", "Chord", "Root", "Arp Up", "Arp Down"
     int octaveOffset = 0;            // -2, -1, 0, +1, +2
-    float volume = 0.8f;             // 0.0 to 1.0
+    float volume = 0.8f;             // 0.0 to 1.0 (gain)
+    float pan = 0.0f;                // -1.0 (Left) to +1.0 (Right), 0.0 = Center
     bool isMuted = false;
     bool isSolo = false;
     int stepCount = 16;
@@ -40,6 +44,12 @@ struct OrchestralPattern {
     int timeSigDenominator = 4;
     int barLength = 2; // 1, 2, or 4 bars
     std::map<Harmonic::InstrumentId, TrackPattern> tracks;
+
+    // Serialization & Persistence
+    std::string toJson() const;
+    static OrchestralPattern fromJson(const std::string& jsonStr);
+    bool saveToFile(const std::string& filePath) const;
+    static OrchestralPattern loadFromFile(const std::string& filePath);
 };
 
 // Factory functions for built-in orchestral styles

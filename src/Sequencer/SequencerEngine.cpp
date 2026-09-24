@@ -23,74 +23,124 @@ void SequencerEngine::updateVoicing(const Harmonic::OrchestralVoicing& voicing) 
     currentVoicing = voicing;
 }
 
+TrackPattern& SequencerEngine::ensureTrackExistsLocked(Harmonic::InstrumentId inst) {
+    auto it = activePattern.tracks.find(inst);
+    if (it != activePattern.tracks.end()) {
+        return it->second;
+    }
+    TrackPattern tp;
+    tp.instrument = inst;
+    tp.trackName = Harmonic::instrumentToString(inst);
+    tp.section = Harmonic::getInstrumentSection(inst);
+    tp.midiChannel = Harmonic::getDefaultInstrumentChannel(inst);
+    tp.articulation = Harmonic::ArticulationType::Sustain;
+    tp.arrangerMode = "Top";
+    tp.octaveOffset = 0;
+    tp.volume = 0.85f;
+    tp.pan = 0.0f;
+    tp.isMuted = false;
+    tp.isSolo = false;
+    tp.stepCount = 16;
+    tp.stepDivision = 0.25;
+    tp.cc1Curve = std::vector<int>(16, 75);
+    tp.steps.resize(16);
+    for (int i = 0; i < 16; ++i) {
+        tp.steps[i].active = false;
+        tp.steps[i].action = Harmonic::StepActionType::Rest;
+        tp.steps[i].articulation = tp.articulation;
+        tp.steps[i].lengthSteps = 1;
+        tp.steps[i].velocity = 90;
+        tp.steps[i].gate = 0.85;
+    }
+    activePattern.tracks[inst] = tp;
+    return activePattern.tracks[inst];
+}
+
 void SequencerEngine::setTrackStep(Harmonic::InstrumentId inst, int stepIndex, bool active, int stepOffset, int velocity, Harmonic::ArticulationType art) {
     std::lock_guard<std::mutex> lock(patternMutex);
-    if (activePattern.tracks.find(inst) != activePattern.tracks.end()) {
-        auto& track = activePattern.tracks[inst];
-        if (stepIndex >= 0 && stepIndex < (int)track.steps.size()) {
-            track.steps[stepIndex].active = active;
-            track.steps[stepIndex].stepOffset = stepOffset;
-            track.steps[stepIndex].velocity = std::clamp(velocity, 1, 127);
-            track.steps[stepIndex].articulation = art;
-            track.steps[stepIndex].action = active ? Harmonic::StepActionType::Ostinato : Harmonic::StepActionType::Rest;
-        }
+    auto& track = ensureTrackExistsLocked(inst);
+    if (stepIndex >= 0 && stepIndex < (int)track.steps.size()) {
+        track.steps[stepIndex].active = active;
+        track.steps[stepIndex].stepOffset = stepOffset;
+        track.steps[stepIndex].velocity = std::clamp(velocity, 1, 127);
+        track.steps[stepIndex].articulation = art;
+        track.steps[stepIndex].action = active ? Harmonic::StepActionType::Ostinato : Harmonic::StepActionType::Rest;
+    }
+}
+
+void SequencerEngine::setTrackStepLength(Harmonic::InstrumentId inst, int stepIndex, int lengthSteps) {
+    std::lock_guard<std::mutex> lock(patternMutex);
+    auto& track = ensureTrackExistsLocked(inst);
+    if (stepIndex >= 0 && stepIndex < (int)track.steps.size()) {
+        track.steps[stepIndex].lengthSteps = std::clamp(lengthSteps, 1, 16 - stepIndex);
     }
 }
 
 void SequencerEngine::setTrackArticulation(Harmonic::InstrumentId inst, Harmonic::ArticulationType art) {
     std::lock_guard<std::mutex> lock(patternMutex);
-    if (activePattern.tracks.find(inst) != activePattern.tracks.end()) {
-        auto& track = activePattern.tracks[inst];
-        track.articulation = art;
-        for (auto& s : track.steps) {
-            s.articulation = art;
-        }
+    auto& track = ensureTrackExistsLocked(inst);
+    track.articulation = art;
+    for (auto& s : track.steps) {
+        s.articulation = art;
     }
 }
 
 void SequencerEngine::setTrackMode(Harmonic::InstrumentId inst, const std::string& mode) {
     std::lock_guard<std::mutex> lock(patternMutex);
-    if (activePattern.tracks.find(inst) != activePattern.tracks.end()) {
-        activePattern.tracks[inst].arrangerMode = mode;
-    }
+    auto& track = ensureTrackExistsLocked(inst);
+    track.arrangerMode = mode;
 }
 
 void SequencerEngine::setTrackOctave(Harmonic::InstrumentId inst, int octave) {
     std::lock_guard<std::mutex> lock(patternMutex);
-    if (activePattern.tracks.find(inst) != activePattern.tracks.end()) {
-        activePattern.tracks[inst].octaveOffset = std::clamp(octave, -2, 2);
-    }
+    auto& track = ensureTrackExistsLocked(inst);
+    track.octaveOffset = std::clamp(octave, -2, 2);
 }
 
 void SequencerEngine::setTrackVolume(Harmonic::InstrumentId inst, float vol) {
     std::lock_guard<std::mutex> lock(patternMutex);
-    if (activePattern.tracks.find(inst) != activePattern.tracks.end()) {
-        activePattern.tracks[inst].volume = std::clamp(vol, 0.0f, 1.0f);
-    }
+    auto& track = ensureTrackExistsLocked(inst);
+    track.volume = std::clamp(vol, 0.0f, 1.0f);
+}
+
+void SequencerEngine::setTrackPan(Harmonic::InstrumentId inst, float pan) {
+    std::lock_guard<std::mutex> lock(patternMutex);
+    auto& track = ensureTrackExistsLocked(inst);
+    track.pan = std::clamp(pan, -1.0f, 1.0f);
 }
 
 void SequencerEngine::setTrackMute(Harmonic::InstrumentId inst, bool mute) {
     std::lock_guard<std::mutex> lock(patternMutex);
-    if (activePattern.tracks.find(inst) != activePattern.tracks.end()) {
-        activePattern.tracks[inst].isMuted = mute;
-    }
+    auto& track = ensureTrackExistsLocked(inst);
+    track.isMuted = mute;
 }
 
 void SequencerEngine::setTrackSolo(Harmonic::InstrumentId inst, bool solo) {
     std::lock_guard<std::mutex> lock(patternMutex);
-    if (activePattern.tracks.find(inst) != activePattern.tracks.end()) {
-        activePattern.tracks[inst].isSolo = solo;
-    }
+    auto& track = ensureTrackExistsLocked(inst);
+    track.isSolo = solo;
 }
 
 void SequencerEngine::setTrackCc1(Harmonic::InstrumentId inst, int stepIndex, int cc1Val) {
     std::lock_guard<std::mutex> lock(patternMutex);
-    if (activePattern.tracks.find(inst) != activePattern.tracks.end()) {
-        auto& track = activePattern.tracks[inst];
-        if (stepIndex >= 0 && stepIndex < (int)track.cc1Curve.size()) {
-            track.cc1Curve[stepIndex] = std::clamp(cc1Val, 0, 127);
-        }
+    auto& track = ensureTrackExistsLocked(inst);
+    if (stepIndex >= 0 && stepIndex < (int)track.cc1Curve.size()) {
+        track.cc1Curve[stepIndex] = std::clamp(cc1Val, 0, 127);
     }
+}
+
+void SequencerEngine::addTrack(Harmonic::InstrumentId inst, const std::string& name, Harmonic::OrchestralSection sec, int channel, Harmonic::ArticulationType art) {
+    std::lock_guard<std::mutex> lock(patternMutex);
+    auto& track = ensureTrackExistsLocked(inst);
+    if (!name.empty()) track.trackName = name;
+    track.section = sec;
+    track.midiChannel = (channel >= 1 && channel <= 16) ? channel : Harmonic::getDefaultInstrumentChannel(inst);
+    track.articulation = art;
+}
+
+void SequencerEngine::removeTrack(Harmonic::InstrumentId inst) {
+    std::lock_guard<std::mutex> lock(patternMutex);
+    activePattern.tracks.erase(inst);
 }
 
 int SequencerEngine::computeRelativeStepPitch(Harmonic::InstrumentId inst,
@@ -183,6 +233,7 @@ void SequencerEngine::stopAllNotes(std::vector<ScheduledMidiEvent>& outEvents) {
             off.pitch = state.pitch;
             off.velocity = 0;
             off.isNoteOn = false;
+            off.instrument = inst;
             outEvents.push_back(off);
             state.active = false;
         }
@@ -211,6 +262,7 @@ void SequencerEngine::processBlock(int numSamples,
                 off.pitch = state.pitch;
                 off.velocity = 0;
                 off.isNoteOn = false;
+                off.instrument = inst;
                 outEvents.push_back(off);
                 state.active = false;
             } else {
@@ -271,11 +323,12 @@ void SequencerEngine::processBlock(int numSamples,
                 cc.velocity = std::clamp(cc1Val, 0, 127);
                 cc.isNoteOn = false;
                 cc.isController = true;
+                cc.instrument = inst;
                 outEvents.push_back(cc);
             }
 
-            if (!stepDef.active || stepDef.action == Harmonic::StepActionType::Rest) {
-                // Terminate any active note for this instrument
+            if (stepDef.action == Harmonic::StepActionType::Rest) {
+                // Terminate any active note for this instrument on explicit rest
                 if (activeNotes[inst].active) {
                     ScheduledMidiEvent off;
                     off.sampleOffset = 0;
@@ -283,14 +336,21 @@ void SequencerEngine::processBlock(int numSamples,
                     off.pitch = activeNotes[inst].pitch;
                     off.velocity = 0;
                     off.isNoteOn = false;
+                    off.instrument = inst;
                     outEvents.push_back(off);
                     activeNotes[inst].active = false;
                 }
                 continue;
             }
 
+            if (!stepDef.active) {
+                // Inactive step: If an active note is already ringing across this step, let it ring!
+                continue;
+            }
+
             int targetPitch = computeRelativeStepPitch(inst, track, stepDef, voice.midiPitch);
-            int gateSamples = static_cast<int>(stepDurationSamples * std::clamp(stepDef.gate, 0.1, 1.0));
+            int lengthSteps = std::clamp(stepDef.lengthSteps, 1, 16);
+            int gateSamples = static_cast<int>(stepDurationSamples * lengthSteps * std::clamp(stepDef.gate, 0.1, 1.0));
 
             // Apply track volume scaling to velocity
             int scaledVel = static_cast<int>(stepDef.velocity * track.volume);
@@ -304,6 +364,7 @@ void SequencerEngine::processBlock(int numSamples,
                 off.pitch = activeNotes[inst].pitch;
                 off.velocity = 0;
                 off.isNoteOn = false;
+                off.instrument = inst;
                 outEvents.push_back(off);
             }
 
@@ -316,6 +377,7 @@ void SequencerEngine::processBlock(int numSamples,
             on.isNoteOn = true;
             on.isController = false;
             on.articulation = stepDef.articulation;
+            on.instrument = inst;
             outEvents.push_back(on);
 
             activeNotes[inst] = {targetPitch, voice.midiChannel, gateSamples, true};
