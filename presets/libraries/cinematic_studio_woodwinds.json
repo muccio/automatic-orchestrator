@@ -1,0 +1,30 @@
+{
+  "library": "Cinematic Studio Woodwinds",
+  "abbreviation": "CSW",
+  "controlType": "CC",
+  "controllerNumber": 58,
+  "defaultChannels": {
+    "Flutes": 10,
+    "Oboes": 11,
+    "Clarinets": 12,
+    "Bassoons": 13
+  },
+  "ccMap": {
+    "Sustain": 0,
+    "Repetitions": 10,
+    "Staccatissimo": 20,
+    "Staccato": 40,
+    "Trills": 60,
+    "Marcato": 100,
+    "FlutterTongue": 115
+  },
+  "keyswitchMap": {
+    "Sustain": 24,
+    "Repetitions": 25,
+    "Staccato": 26,
+    "Trills": 27,
+    "Marcato": 28,
+    "FlutterTongue": 29
+  },
+  "notes": "CC58 triggers woodwind articulations. Flute/Clarinet trills, staccatos and lyrical legato transitions."
+}

@@ -44,33 +44,48 @@ Unlike closed proprietary orchestrators tied to specific sample libraries, this 
 
 ---
 
-## Cubase Routing Guide
+---
 
-1. Place `Hollywood Orchestrator.vst3` into:
-   ```
-   ~/Library/Audio/Plug-Ins/VST3/
-   ```
-2. In Cubase, create an Instrument Track loaded with **Hollywood Orchestrator**.
-3. On your orchestral library tracks (e.g., CSS Violins, BBCSO Horns, CineBrass Trombones):
-   - Set the track's **MIDI Input** to `Hollywood Orchestrator - MIDI Out`.
-   - Set the track's **MIDI Channel**:
-     - **Ch 1**: Violins 1
-     - **Ch 2**: Violins 2
-     - **Ch 3**: Violas
-     - **Ch 4**: Cellos
-     - **Ch 5**: Double Basses
-     - **Ch 6**: Trumpets
-     - **Ch 7**: French Horns
-     - **Ch 8**: Trombones
-     - **Ch 9**: Tuba
-     - **Ch 10**: Flutes
-     - **Ch 11**: Oboes
-     - **Ch 12**: Clarinets
-     - **Ch 13**: Bassoons
-     - **Ch 14**: Timpani
-     - **Ch 15**: Percussion
-4. Play a chord on your MIDI controller: the engine will orchestrate the parts in real time!
-5. Drag the **DRAG MASTER MIDI** button straight onto the Cubase Project Window timeline to create editable MIDI clips.
+## Cubase Track Archive & Kontakt 8 Quick-Start (1-Click Setup)
+
+Pre-configured Steinberg Cubase Track Archives and Expression Maps are included in `cubase/`:
+
+### 1. Import Ready-to-Test Orchestral Tracks
+In Cubase:
+1. Go to **File > Import > Track Archive (.xml)**.
+2. Select:
+   - `cubase/Hollywood_Orchestrator_Kontakt8_CSS_CSB_CSW.xml` (Individual Instrument Tracks pre-loaded with Kontakt 8 VST3 and Expression Maps)
+   - OR `cubase/Hollywood_Orchestrator_Kontakt8_MultiOut.xml` (Multi-Timbral Kontakt 8 instance + 15 MIDI Tracks)
+3. Cubase immediately creates the entire 16-channel orchestral template, already routed to Kontakt 8 (`/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3`)!
+
+### 2. Expression Maps (CSS, CSB, CSW)
+In the Cubase Inspector for each track, the corresponding Expression Map is ready:
+- **Cinematic Studio Strings (CSS)**: `cubase/expression_maps/Cinematic_Studio_Strings.expressionmap`
+- **Cinematic Studio Brass (CSB)**: `cubase/expression_maps/Cinematic_Studio_Brass.expressionmap`
+- **Cinematic Studio Woodwinds (CSW)**: `cubase/expression_maps/Cinematic_Studio_Woodwinds.expressionmap`
+Installed locally to: `~/Library/Application Support/Steinberg/Expression Maps/`
+
+All articulation switches automatically output **CC58** commands:
+| Articulation | CSS CC58 | CSB CC58 | CSW CC58 |
+|---|---|---|---|
+| Sustain / Legato | 0 | 0 | 0 |
+| Repetitions | - | 10 | 10 |
+| Spiccato / Staccatissimo | 20 / 30 | 20 | 20 |
+| Staccato | 40 | 40 | 40 |
+| Pizzicato / Rips / Trills | 60 | 55 (Rips) | 60 (Trills) |
+| Tremolo / Flutter Tongue | 80 | 115 | 115 |
+| Marcato | 100 | 100 | 100 |
+
+### 3. MIDI Routing Guide
+1. Create an Instrument Track loaded with **Hollywood Orchestrator** (installed to `~/Library/Audio/Plug-Ins/VST3/Hollywood Orchestrator.vst3`).
+2. The imported Kontakt 8 tracks will listen to `Hollywood Orchestrator - MIDI Out` across Channels 1-16:
+   - **Ch 1-5**: CSS Violins 1, Violins 2, Violas, Cellos, Double Basses
+   - **Ch 6-9**: CSB Trumpets, French Horns, Trombones, Tuba
+   - **Ch 10-13**: CSW Flutes, Oboes, Clarinets, Bassoons
+   - **Ch 14-15**: Timpani & Orchestral Percussion
+   - **Ch 16**: Hollywood Orchestrator Input / Master
+3. Play any chord or progression: voices are assigned dynamically according to acoustic tessituras!
+4. Drag the **DRAG MASTER MIDI** handle straight onto the Cubase timeline to export multi-track MIDI.
 
 ---
 

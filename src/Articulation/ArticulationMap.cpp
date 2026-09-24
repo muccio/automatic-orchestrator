@@ -48,13 +48,57 @@ static void applyEWOpusTriggers(InstrumentArticulationProfile& p) {
     p.setTrigger(ArticulationType::Runs,      {TriggerMethod::Keyswitch, 28, 127});
 }
 
+static void applyCSBTriggers(InstrumentArticulationProfile& p) {
+    using namespace Harmonic;
+    // Cinematic Studio Brass CC58 protocol
+    p.setTrigger(ArticulationType::Sustain,   {TriggerMethod::ContinuousController, 58, 0});
+    p.setTrigger(ArticulationType::Spiccato,  {TriggerMethod::ContinuousController, 58, 20}); // Staccatissimo
+    p.setTrigger(ArticulationType::Staccato,  {TriggerMethod::ContinuousController, 58, 40});
+    p.setTrigger(ArticulationType::Marcato,   {TriggerMethod::ContinuousController, 58, 100});
+    p.setTrigger(ArticulationType::Runs,      {TriggerMethod::ContinuousController, 58, 20});
+}
+
+static void applyCSWTriggers(InstrumentArticulationProfile& p) {
+    using namespace Harmonic;
+    // Cinematic Studio Woodwinds CC58 protocol
+    p.setTrigger(ArticulationType::Sustain,   {TriggerMethod::ContinuousController, 58, 0});
+    p.setTrigger(ArticulationType::Spiccato,  {TriggerMethod::ContinuousController, 58, 20});
+    p.setTrigger(ArticulationType::Staccato,  {TriggerMethod::ContinuousController, 58, 40});
+    p.setTrigger(ArticulationType::Marcato,   {TriggerMethod::ContinuousController, 58, 100});
+    p.setTrigger(ArticulationType::Runs,      {TriggerMethod::ContinuousController, 58, 20});
+}
+
 LibraryProfile createCSSProfile() {
     LibraryProfile lp;
-    lp.libraryName = "Cinematic Studio Series";
+    lp.libraryName = "Cinematic Studio Strings";
     InstrumentArticulationProfile prof;
     applyCSSTriggers(prof);
 
     // Apply to all orchestral instruments
+    for (int i = 0; i <= static_cast<int>(Harmonic::InstrumentId::OrchestralPerc); ++i) {
+        lp.setInstrumentProfile(static_cast<Harmonic::InstrumentId>(i), prof);
+    }
+    return lp;
+}
+
+LibraryProfile createCSBProfile() {
+    LibraryProfile lp;
+    lp.libraryName = "Cinematic Studio Brass";
+    InstrumentArticulationProfile prof;
+    applyCSBTriggers(prof);
+
+    for (int i = 0; i <= static_cast<int>(Harmonic::InstrumentId::OrchestralPerc); ++i) {
+        lp.setInstrumentProfile(static_cast<Harmonic::InstrumentId>(i), prof);
+    }
+    return lp;
+}
+
+LibraryProfile createCSWProfile() {
+    LibraryProfile lp;
+    lp.libraryName = "Cinematic Studio Woodwinds";
+    InstrumentArticulationProfile prof;
+    applyCSWTriggers(prof);
+
     for (int i = 0; i <= static_cast<int>(Harmonic::InstrumentId::OrchestralPerc); ++i) {
         lp.setInstrumentProfile(static_cast<Harmonic::InstrumentId>(i), prof);
     }

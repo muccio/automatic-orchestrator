@@ -1,0 +1,344 @@
+<?xml version="1.0" encoding="utf-8"?>
+<trackarchive>
+   <obj class="FArchiveHeader" ID="1">
+      <int name="Version" value="1"/>
+      <string name="Product" value="Cubase Pro" wide="true"/>
+      <string name="Architecture" value="mac" wide="true"/>
+      <string name="VersionString" value="15.0" wide="true"/>
+   </obj>
+   <list name="Tracks" type="obj">
+      <obj class="MAudioSynthTrack" ID="100">
+         <obj class="MTrackDescription" ID="101">
+            <string name="Name" value="CSS - Violins 1" wide="true"/>
+            <int name="Color" value="2"/>
+         </obj>
+         <obj class="MTrackParams" ID="102">
+            <string name="TrackType" value="Instrument" wide="true"/>
+            <int name="MidiChannel" value="1"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Strings (CSS)" wide="true"/>
+            <obj class="VstPluginDescriptor" ID="103">
+               <string name="Name" value="Kontakt 8" wide="true"/>
+               <string name="ClassID" value="5653544e694b386b6f6e74616b742038" wide="true"/>
+               <string name="Category" value="Audio Module Class" wide="true"/>
+               <string name="SubCategory" value="Instrument" wide="true"/>
+               <string name="Vendor" value="Native Instruments" wide="true"/>
+               <string name="Path" value="/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3" wide="true"/>
+            </obj>
+         </obj>
+      </obj>
+      <obj class="MAudioSynthTrack" ID="104">
+         <obj class="MTrackDescription" ID="105">
+            <string name="Name" value="CSS - Violins 2" wide="true"/>
+            <int name="Color" value="2"/>
+         </obj>
+         <obj class="MTrackParams" ID="106">
+            <string name="TrackType" value="Instrument" wide="true"/>
+            <int name="MidiChannel" value="2"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Strings (CSS)" wide="true"/>
+            <obj class="VstPluginDescriptor" ID="107">
+               <string name="Name" value="Kontakt 8" wide="true"/>
+               <string name="ClassID" value="5653544e694b386b6f6e74616b742038" wide="true"/>
+               <string name="Category" value="Audio Module Class" wide="true"/>
+               <string name="SubCategory" value="Instrument" wide="true"/>
+               <string name="Vendor" value="Native Instruments" wide="true"/>
+               <string name="Path" value="/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3" wide="true"/>
+            </obj>
+         </obj>
+      </obj>
+      <obj class="MAudioSynthTrack" ID="108">
+         <obj class="MTrackDescription" ID="109">
+            <string name="Name" value="CSS - Violas" wide="true"/>
+            <int name="Color" value="3"/>
+         </obj>
+         <obj class="MTrackParams" ID="110">
+            <string name="TrackType" value="Instrument" wide="true"/>
+            <int name="MidiChannel" value="3"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Strings (CSS)" wide="true"/>
+            <obj class="VstPluginDescriptor" ID="111">
+               <string name="Name" value="Kontakt 8" wide="true"/>
+               <string name="ClassID" value="5653544e694b386b6f6e74616b742038" wide="true"/>
+               <string name="Category" value="Audio Module Class" wide="true"/>
+               <string name="SubCategory" value="Instrument" wide="true"/>
+               <string name="Vendor" value="Native Instruments" wide="true"/>
+               <string name="Path" value="/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3" wide="true"/>
+            </obj>
+         </obj>
+      </obj>
+      <obj class="MAudioSynthTrack" ID="112">
+         <obj class="MTrackDescription" ID="113">
+            <string name="Name" value="CSS - Cellos" wide="true"/>
+            <int name="Color" value="4"/>
+         </obj>
+         <obj class="MTrackParams" ID="114">
+            <string name="TrackType" value="Instrument" wide="true"/>
+            <int name="MidiChannel" value="4"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Strings (CSS)" wide="true"/>
+            <obj class="VstPluginDescriptor" ID="115">
+               <string name="Name" value="Kontakt 8" wide="true"/>
+               <string name="ClassID" value="5653544e694b386b6f6e74616b742038" wide="true"/>
+               <string name="Category" value="Audio Module Class" wide="true"/>
+               <string name="SubCategory" value="Instrument" wide="true"/>
+               <string name="Vendor" value="Native Instruments" wide="true"/>
+               <string name="Path" value="/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3" wide="true"/>
+            </obj>
+         </obj>
+      </obj>
+      <obj class="MAudioSynthTrack" ID="116">
+         <obj class="MTrackDescription" ID="117">
+            <string name="Name" value="CSS - Double Basses" wide="true"/>
+            <int name="Color" value="5"/>
+         </obj>
+         <obj class="MTrackParams" ID="118">
+            <string name="TrackType" value="Instrument" wide="true"/>
+            <int name="MidiChannel" value="5"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Strings (CSS)" wide="true"/>
+            <obj class="VstPluginDescriptor" ID="119">
+               <string name="Name" value="Kontakt 8" wide="true"/>
+               <string name="ClassID" value="5653544e694b386b6f6e74616b742038" wide="true"/>
+               <string name="Category" value="Audio Module Class" wide="true"/>
+               <string name="SubCategory" value="Instrument" wide="true"/>
+               <string name="Vendor" value="Native Instruments" wide="true"/>
+               <string name="Path" value="/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3" wide="true"/>
+            </obj>
+         </obj>
+      </obj>
+      <obj class="MAudioSynthTrack" ID="120">
+         <obj class="MTrackDescription" ID="121">
+            <string name="Name" value="CSB - Trumpets" wide="true"/>
+            <int name="Color" value="6"/>
+         </obj>
+         <obj class="MTrackParams" ID="122">
+            <string name="TrackType" value="Instrument" wide="true"/>
+            <int name="MidiChannel" value="6"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Brass (CSB)" wide="true"/>
+            <obj class="VstPluginDescriptor" ID="123">
+               <string name="Name" value="Kontakt 8" wide="true"/>
+               <string name="ClassID" value="5653544e694b386b6f6e74616b742038" wide="true"/>
+               <string name="Category" value="Audio Module Class" wide="true"/>
+               <string name="SubCategory" value="Instrument" wide="true"/>
+               <string name="Vendor" value="Native Instruments" wide="true"/>
+               <string name="Path" value="/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3" wide="true"/>
+            </obj>
+         </obj>
+      </obj>
+      <obj class="MAudioSynthTrack" ID="124">
+         <obj class="MTrackDescription" ID="125">
+            <string name="Name" value="CSB - French Horns" wide="true"/>
+            <int name="Color" value="7"/>
+         </obj>
+         <obj class="MTrackParams" ID="126">
+            <string name="TrackType" value="Instrument" wide="true"/>
+            <int name="MidiChannel" value="7"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Brass (CSB)" wide="true"/>
+            <obj class="VstPluginDescriptor" ID="127">
+               <string name="Name" value="Kontakt 8" wide="true"/>
+               <string name="ClassID" value="5653544e694b386b6f6e74616b742038" wide="true"/>
+               <string name="Category" value="Audio Module Class" wide="true"/>
+               <string name="SubCategory" value="Instrument" wide="true"/>
+               <string name="Vendor" value="Native Instruments" wide="true"/>
+               <string name="Path" value="/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3" wide="true"/>
+            </obj>
+         </obj>
+      </obj>
+      <obj class="MAudioSynthTrack" ID="128">
+         <obj class="MTrackDescription" ID="129">
+            <string name="Name" value="CSB - Trombones" wide="true"/>
+            <int name="Color" value="8"/>
+         </obj>
+         <obj class="MTrackParams" ID="130">
+            <string name="TrackType" value="Instrument" wide="true"/>
+            <int name="MidiChannel" value="8"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Brass (CSB)" wide="true"/>
+            <obj class="VstPluginDescriptor" ID="131">
+               <string name="Name" value="Kontakt 8" wide="true"/>
+               <string name="ClassID" value="5653544e694b386b6f6e74616b742038" wide="true"/>
+               <string name="Category" value="Audio Module Class" wide="true"/>
+               <string name="SubCategory" value="Instrument" wide="true"/>
+               <string name="Vendor" value="Native Instruments" wide="true"/>
+               <string name="Path" value="/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3" wide="true"/>
+            </obj>
+         </obj>
+      </obj>
+      <obj class="MAudioSynthTrack" ID="132">
+         <obj class="MTrackDescription" ID="133">
+            <string name="Name" value="CSB - Tuba" wide="true"/>
+            <int name="Color" value="9"/>
+         </obj>
+         <obj class="MTrackParams" ID="134">
+            <string name="TrackType" value="Instrument" wide="true"/>
+            <int name="MidiChannel" value="9"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Brass (CSB)" wide="true"/>
+            <obj class="VstPluginDescriptor" ID="135">
+               <string name="Name" value="Kontakt 8" wide="true"/>
+               <string name="ClassID" value="5653544e694b386b6f6e74616b742038" wide="true"/>
+               <string name="Category" value="Audio Module Class" wide="true"/>
+               <string name="SubCategory" value="Instrument" wide="true"/>
+               <string name="Vendor" value="Native Instruments" wide="true"/>
+               <string name="Path" value="/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3" wide="true"/>
+            </obj>
+         </obj>
+      </obj>
+      <obj class="MAudioSynthTrack" ID="136">
+         <obj class="MTrackDescription" ID="137">
+            <string name="Name" value="CSW - Flutes" wide="true"/>
+            <int name="Color" value="10"/>
+         </obj>
+         <obj class="MTrackParams" ID="138">
+            <string name="TrackType" value="Instrument" wide="true"/>
+            <int name="MidiChannel" value="10"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Woodwinds (CSW)" wide="true"/>
+            <obj class="VstPluginDescriptor" ID="139">
+               <string name="Name" value="Kontakt 8" wide="true"/>
+               <string name="ClassID" value="5653544e694b386b6f6e74616b742038" wide="true"/>
+               <string name="Category" value="Audio Module Class" wide="true"/>
+               <string name="SubCategory" value="Instrument" wide="true"/>
+               <string name="Vendor" value="Native Instruments" wide="true"/>
+               <string name="Path" value="/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3" wide="true"/>
+            </obj>
+         </obj>
+      </obj>
+      <obj class="MAudioSynthTrack" ID="140">
+         <obj class="MTrackDescription" ID="141">
+            <string name="Name" value="CSW - Oboes" wide="true"/>
+            <int name="Color" value="11"/>
+         </obj>
+         <obj class="MTrackParams" ID="142">
+            <string name="TrackType" value="Instrument" wide="true"/>
+            <int name="MidiChannel" value="11"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Woodwinds (CSW)" wide="true"/>
+            <obj class="VstPluginDescriptor" ID="143">
+               <string name="Name" value="Kontakt 8" wide="true"/>
+               <string name="ClassID" value="5653544e694b386b6f6e74616b742038" wide="true"/>
+               <string name="Category" value="Audio Module Class" wide="true"/>
+               <string name="SubCategory" value="Instrument" wide="true"/>
+               <string name="Vendor" value="Native Instruments" wide="true"/>
+               <string name="Path" value="/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3" wide="true"/>
+            </obj>
+         </obj>
+      </obj>
+      <obj class="MAudioSynthTrack" ID="144">
+         <obj class="MTrackDescription" ID="145">
+            <string name="Name" value="CSW - Clarinets" wide="true"/>
+            <int name="Color" value="12"/>
+         </obj>
+         <obj class="MTrackParams" ID="146">
+            <string name="TrackType" value="Instrument" wide="true"/>
+            <int name="MidiChannel" value="12"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Woodwinds (CSW)" wide="true"/>
+            <obj class="VstPluginDescriptor" ID="147">
+               <string name="Name" value="Kontakt 8" wide="true"/>
+               <string name="ClassID" value="5653544e694b386b6f6e74616b742038" wide="true"/>
+               <string name="Category" value="Audio Module Class" wide="true"/>
+               <string name="SubCategory" value="Instrument" wide="true"/>
+               <string name="Vendor" value="Native Instruments" wide="true"/>
+               <string name="Path" value="/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3" wide="true"/>
+            </obj>
+         </obj>
+      </obj>
+      <obj class="MAudioSynthTrack" ID="148">
+         <obj class="MTrackDescription" ID="149">
+            <string name="Name" value="CSW - Bassoons" wide="true"/>
+            <int name="Color" value="13"/>
+         </obj>
+         <obj class="MTrackParams" ID="150">
+            <string name="TrackType" value="Instrument" wide="true"/>
+            <int name="MidiChannel" value="13"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Woodwinds (CSW)" wide="true"/>
+            <obj class="VstPluginDescriptor" ID="151">
+               <string name="Name" value="Kontakt 8" wide="true"/>
+               <string name="ClassID" value="5653544e694b386b6f6e74616b742038" wide="true"/>
+               <string name="Category" value="Audio Module Class" wide="true"/>
+               <string name="SubCategory" value="Instrument" wide="true"/>
+               <string name="Vendor" value="Native Instruments" wide="true"/>
+               <string name="Path" value="/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3" wide="true"/>
+            </obj>
+         </obj>
+      </obj>
+      <obj class="MAudioSynthTrack" ID="152">
+         <obj class="MTrackDescription" ID="153">
+            <string name="Name" value="PERC - Timpani" wide="true"/>
+            <int name="Color" value="14"/>
+         </obj>
+         <obj class="MTrackParams" ID="154">
+            <string name="TrackType" value="Instrument" wide="true"/>
+            <int name="MidiChannel" value="14"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <obj class="VstPluginDescriptor" ID="155">
+               <string name="Name" value="Kontakt 8" wide="true"/>
+               <string name="ClassID" value="5653544e694b386b6f6e74616b742038" wide="true"/>
+               <string name="Category" value="Audio Module Class" wide="true"/>
+               <string name="SubCategory" value="Instrument" wide="true"/>
+               <string name="Vendor" value="Native Instruments" wide="true"/>
+               <string name="Path" value="/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3" wide="true"/>
+            </obj>
+         </obj>
+      </obj>
+      <obj class="MAudioSynthTrack" ID="156">
+         <obj class="MTrackDescription" ID="157">
+            <string name="Name" value="PERC - Orchestral Perc" wide="true"/>
+            <int name="Color" value="15"/>
+         </obj>
+         <obj class="MTrackParams" ID="158">
+            <string name="TrackType" value="Instrument" wide="true"/>
+            <int name="MidiChannel" value="15"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <obj class="VstPluginDescriptor" ID="159">
+               <string name="Name" value="Kontakt 8" wide="true"/>
+               <string name="ClassID" value="5653544e694b386b6f6e74616b742038" wide="true"/>
+               <string name="Category" value="Audio Module Class" wide="true"/>
+               <string name="SubCategory" value="Instrument" wide="true"/>
+               <string name="Vendor" value="Native Instruments" wide="true"/>
+               <string name="Path" value="/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3" wide="true"/>
+            </obj>
+         </obj>
+      </obj>
+      <obj class="MAudioSynthTrack" ID="160">
+         <obj class="MTrackDescription" ID="161">
+            <string name="Name" value="HOLLYWOOD ORCHESTRATOR - Controller" wide="true"/>
+            <int name="Color" value="16"/>
+         </obj>
+         <obj class="MTrackParams" ID="162">
+            <string name="TrackType" value="Instrument" wide="true"/>
+            <int name="MidiChannel" value="1"/>
+            <string name="MidiInput" value="All MIDI Inputs" wide="true"/>
+            <string name="MidiOutput" value="Master" wide="true"/>
+            <obj class="VstPluginDescriptor" ID="163">
+               <string name="Name" value="Hollywood Orchestrator" wide="true"/>
+               <string name="ClassID" value="abcdef019182faeb4d616e7548647067" wide="true"/>
+               <string name="Category" value="Audio Module Class" wide="true"/>
+               <string name="SubCategory" value="Instrument|MidiEffect" wide="true"/>
+               <string name="Vendor" value="Antigravity" wide="true"/>
+               <string name="Path" value="/Users/mariosalvucci/Library/Audio/Plug-Ins/VST3/Hollywood Orchestrator.vst3" wide="true"/>
+            </obj>
+         </obj>
+      </obj>
+   </list>
+</trackarchive>

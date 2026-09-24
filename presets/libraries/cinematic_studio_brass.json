@@ -1,0 +1,34 @@
+{
+  "library": "Cinematic Studio Brass",
+  "abbreviation": "CSB",
+  "controlType": "CC",
+  "controllerNumber": 58,
+  "defaultChannels": {
+    "Trumpets": 6,
+    "FrenchHorns": 7,
+    "Trombones": 8,
+    "Tuba": 9
+  },
+  "ccMap": {
+    "Sustain": 0,
+    "Repetitions": 10,
+    "Staccatissimo": 20,
+    "Staccato": 40,
+    "Rips": 55,
+    "DoubleTongue": 70,
+    "Muted": 85,
+    "Marcato": 100,
+    "FlutterTongue": 115
+  },
+  "keyswitchMap": {
+    "Sustain": 24,
+    "Repetitions": 25,
+    "Staccato": 26,
+    "Rips": 27,
+    "Marcato": 28,
+    "FlutterTongue": 29,
+    "DoubleTongue": 30,
+    "Muted": 31
+  },
+  "notes": "CC58 selects articulation. Velocity values control attack dynamics for shorts and legato transitions for longs."
+}

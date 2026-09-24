@@ -1,9 +1,9 @@
 #include "TestHarness.h"
 #include "Articulation/ArticulationMap.h"
 
-TEST_CASE(ArticulationMap, CinematicStudioSeriesCC58) {
+TEST_CASE(ArticulationMap, CinematicStudioStringsCC58) {
     auto profile = Articulation::createCSSProfile();
-    ASSERT_EQ(profile.libraryName, "Cinematic Studio Series");
+    ASSERT_EQ(profile.libraryName, "Cinematic Studio Strings");
 
     const auto& vln = profile.getInstrumentProfile(Harmonic::InstrumentId::Violins1);
     auto spiccato = vln.getTrigger(Harmonic::ArticulationType::Spiccato);
@@ -15,6 +15,24 @@ TEST_CASE(ArticulationMap, CinematicStudioSeriesCC58) {
     auto sustain = vln.getTrigger(Harmonic::ArticulationType::Sustain);
     ASSERT_EQ(sustain.param1, 58);
     ASSERT_EQ(sustain.param2, 0); // Value 0 = Sustain in CSS
+}
+
+TEST_CASE(ArticulationMap, CinematicStudioBrassAndWindsCC58) {
+    auto csb = Articulation::createCSBProfile();
+    ASSERT_EQ(csb.libraryName, "Cinematic Studio Brass");
+    const auto& tpt = csb.getInstrumentProfile(Harmonic::InstrumentId::Trumpets);
+    auto marcatoB = tpt.getTrigger(Harmonic::ArticulationType::Marcato);
+    ASSERT_EQ(marcatoB.method, Articulation::TriggerMethod::ContinuousController);
+    ASSERT_EQ(marcatoB.param1, 58);
+    ASSERT_EQ(marcatoB.param2, 100);
+
+    auto csw = Articulation::createCSWProfile();
+    ASSERT_EQ(csw.libraryName, "Cinematic Studio Woodwinds");
+    const auto& flt = csw.getInstrumentProfile(Harmonic::InstrumentId::Flutes);
+    auto staccW = flt.getTrigger(Harmonic::ArticulationType::Staccato);
+    ASSERT_EQ(staccW.method, Articulation::TriggerMethod::ContinuousController);
+    ASSERT_EQ(staccW.param1, 58);
+    ASSERT_EQ(staccW.param2, 40);
 }
 
 TEST_CASE(ArticulationMap, SpitfireUACC_CC32) {

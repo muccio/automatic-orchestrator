@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="utf-8"?>
+<trackarchive>
+   <obj class="FArchiveHeader" ID="1">
+      <int name="Version" value="1"/>
+      <string name="Product" value="Cubase Pro" wide="true"/>
+      <string name="Architecture" value="mac" wide="true"/>
+      <string name="VersionString" value="15.0" wide="true"/>
+   </obj>
+   <list name="Tracks" type="obj">
+      <obj class="MAudioSynthTrack" ID="100">
+         <obj class="MTrackDescription" ID="101">
+            <string name="Name" value="Kontakt 8 (CSS / CSB / CSW Master)" wide="true"/>
+            <int name="Color" value="1"/>
+         </obj>
+         <obj class="MTrackParams" ID="102">
+            <string name="TrackType" value="Instrument" wide="true"/>
+            <int name="MidiChannel" value="1"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <obj class="VstPluginDescriptor" ID="103">
+               <string name="Name" value="Kontakt 8" wide="true"/>
+               <string name="ClassID" value="5653544e694b386b6f6e74616b742038" wide="true"/>
+               <string name="Category" value="Audio Module Class" wide="true"/>
+               <string name="SubCategory" value="Instrument" wide="true"/>
+               <string name="Vendor" value="Native Instruments" wide="true"/>
+               <string name="Path" value="/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3" wide="true"/>
+            </obj>
+         </obj>
+      </obj>
+      <obj class="MMidiTrack" ID="104">
+         <obj class="MTrackDescription" ID="105">
+            <string name="Name" value="MIDI 01 - CSS - Violins 1" wide="true"/>
+            <int name="Color" value="2"/>
+         </obj>
+         <obj class="MTrackParams" ID="106">
+            <string name="TrackType" value="Midi" wide="true"/>
+            <int name="MidiChannel" value="1"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Strings (CSS)" wide="true"/>
+         </obj>
+      </obj>
+      <obj class="MMidiTrack" ID="107">
+         <obj class="MTrackDescription" ID="108">
+            <string name="Name" value="MIDI 02 - CSS - Violins 2" wide="true"/>
+            <int name="Color" value="2"/>
+         </obj>
+         <obj class="MTrackParams" ID="109">
+            <string name="TrackType" value="Midi" wide="true"/>
+            <int name="MidiChannel" value="2"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Strings (CSS)" wide="true"/>
+         </obj>
+      </obj>
+      <obj class="MMidiTrack" ID="110">
+         <obj class="MTrackDescription" ID="111">
+            <string name="Name" value="MIDI 03 - CSS - Violas" wide="true"/>
+            <int name="Color" value="3"/>
+         </obj>
+         <obj class="MTrackParams" ID="112">
+            <string name="TrackType" value="Midi" wide="true"/>
+            <int name="MidiChannel" value="3"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Strings (CSS)" wide="true"/>
+         </obj>
+      </obj>
+      <obj class="MMidiTrack" ID="113">
+         <obj class="MTrackDescription" ID="114">
+            <string name="Name" value="MIDI 04 - CSS - Cellos" wide="true"/>
+            <int name="Color" value="4"/>
+         </obj>
+         <obj class="MTrackParams" ID="115">
+            <string name="TrackType" value="Midi" wide="true"/>
+            <int name="MidiChannel" value="4"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Strings (CSS)" wide="true"/>
+         </obj>
+      </obj>
+      <obj class="MMidiTrack" ID="116">
+         <obj class="MTrackDescription" ID="117">
+            <string name="Name" value="MIDI 05 - CSS - Double Basses" wide="true"/>
+            <int name="Color" value="5"/>
+         </obj>
+         <obj class="MTrackParams" ID="118">
+            <string name="TrackType" value="Midi" wide="true"/>
+            <int name="MidiChannel" value="5"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Strings (CSS)" wide="true"/>
+         </obj>
+      </obj>
+      <obj class="MMidiTrack" ID="119">
+         <obj class="MTrackDescription" ID="120">
+            <string name="Name" value="MIDI 06 - CSB - Trumpets" wide="true"/>
+            <int name="Color" value="6"/>
+         </obj>
+         <obj class="MTrackParams" ID="121">
+            <string name="TrackType" value="Midi" wide="true"/>
+            <int name="MidiChannel" value="6"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Brass (CSB)" wide="true"/>
+         </obj>
+      </obj>
+      <obj class="MMidiTrack" ID="122">
+         <obj class="MTrackDescription" ID="123">
+            <string name="Name" value="MIDI 07 - CSB - French Horns" wide="true"/>
+            <int name="Color" value="7"/>
+         </obj>
+         <obj class="MTrackParams" ID="124">
+            <string name="TrackType" value="Midi" wide="true"/>
+            <int name="MidiChannel" value="7"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Brass (CSB)" wide="true"/>
+         </obj>
+      </obj>
+      <obj class="MMidiTrack" ID="125">
+         <obj class="MTrackDescription" ID="126">
+            <string name="Name" value="MIDI 08 - CSB - Trombones" wide="true"/>
+            <int name="Color" value="8"/>
+         </obj>
+         <obj class="MTrackParams" ID="127">
+            <string name="TrackType" value="Midi" wide="true"/>
+            <int name="MidiChannel" value="8"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Brass (CSB)" wide="true"/>
+         </obj>
+      </obj>
+      <obj class="MMidiTrack" ID="128">
+         <obj class="MTrackDescription" ID="129">
+            <string name="Name" value="MIDI 09 - CSB - Tuba" wide="true"/>
+            <int name="Color" value="9"/>
+         </obj>
+         <obj class="MTrackParams" ID="130">
+            <string name="TrackType" value="Midi" wide="true"/>
+            <int name="MidiChannel" value="9"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Brass (CSB)" wide="true"/>
+         </obj>
+      </obj>
+      <obj class="MMidiTrack" ID="131">
+         <obj class="MTrackDescription" ID="132">
+            <string name="Name" value="MIDI 10 - CSW - Flutes" wide="true"/>
+            <int name="Color" value="10"/>
+         </obj>
+         <obj class="MTrackParams" ID="133">
+            <string name="TrackType" value="Midi" wide="true"/>
+            <int name="MidiChannel" value="10"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Woodwinds (CSW)" wide="true"/>
+         </obj>
+      </obj>
+      <obj class="MMidiTrack" ID="134">
+         <obj class="MTrackDescription" ID="135">
+            <string name="Name" value="MIDI 11 - CSW - Oboes" wide="true"/>
+            <int name="Color" value="11"/>
+         </obj>
+         <obj class="MTrackParams" ID="136">
+            <string name="TrackType" value="Midi" wide="true"/>
+            <int name="MidiChannel" value="11"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Woodwinds (CSW)" wide="true"/>
+         </obj>
+      </obj>
+      <obj class="MMidiTrack" ID="137">
+         <obj class="MTrackDescription" ID="138">
+            <string name="Name" value="MIDI 12 - CSW - Clarinets" wide="true"/>
+            <int name="Color" value="12"/>
+         </obj>
+         <obj class="MTrackParams" ID="139">
+            <string name="TrackType" value="Midi" wide="true"/>
+            <int name="MidiChannel" value="12"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Woodwinds (CSW)" wide="true"/>
+         </obj>
+      </obj>
+      <obj class="MMidiTrack" ID="140">
+         <obj class="MTrackDescription" ID="141">
+            <string name="Name" value="MIDI 13 - CSW - Bassoons" wide="true"/>
+            <int name="Color" value="13"/>
+         </obj>
+         <obj class="MTrackParams" ID="142">
+            <string name="TrackType" value="Midi" wide="true"/>
+            <int name="MidiChannel" value="13"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+            <string name="ExpressionMap" value="Cinematic Studio Woodwinds (CSW)" wide="true"/>
+         </obj>
+      </obj>
+      <obj class="MMidiTrack" ID="143">
+         <obj class="MTrackDescription" ID="144">
+            <string name="Name" value="MIDI 14 - PERC - Timpani" wide="true"/>
+            <int name="Color" value="14"/>
+         </obj>
+         <obj class="MTrackParams" ID="145">
+            <string name="TrackType" value="Midi" wide="true"/>
+            <int name="MidiChannel" value="14"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+         </obj>
+      </obj>
+      <obj class="MMidiTrack" ID="146">
+         <obj class="MTrackDescription" ID="147">
+            <string name="Name" value="MIDI 15 - PERC - Orchestral Perc" wide="true"/>
+            <int name="Color" value="15"/>
+         </obj>
+         <obj class="MTrackParams" ID="148">
+            <string name="TrackType" value="Midi" wide="true"/>
+            <int name="MidiChannel" value="15"/>
+            <string name="MidiInput" value="Hollywood Orchestrator" wide="true"/>
+            <string name="MidiOutput" value="Kontakt 8" wide="true"/>
+         </obj>
+      </obj>
+      <obj class="MAudioSynthTrack" ID="149">
+         <obj class="MTrackDescription" ID="150">
+            <string name="Name" value="HOLLYWOOD ORCHESTRATOR - Controller" wide="true"/>
+            <int name="Color" value="16"/>
+         </obj>
+         <obj class="MTrackParams" ID="151">
+            <string name="TrackType" value="Instrument" wide="true"/>
+            <int name="MidiChannel" value="1"/>
+            <string name="MidiInput" value="All MIDI Inputs" wide="true"/>
+            <string name="MidiOutput" value="Master" wide="true"/>
+            <obj class="VstPluginDescriptor" ID="152">
+               <string name="Name" value="Hollywood Orchestrator" wide="true"/>
+               <string name="ClassID" value="abcdef019182faeb4d616e7548647067" wide="true"/>
+               <string name="Category" value="Audio Module Class" wide="true"/>
+               <string name="SubCategory" value="Instrument|MidiEffect" wide="true"/>
+               <string name="Vendor" value="Antigravity" wide="true"/>
+               <string name="Path" value="/Users/mariosalvucci/Library/Audio/Plug-Ins/VST3/Hollywood Orchestrator.vst3" wide="true"/>
+            </obj>
+         </obj>
+      </obj>
+   </list>
+</trackarchive>

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<instrumentList>
+   <obj class="PInstrumentList" ID="1">
+      <string name="Name" value="Cinematic Studio Woodwinds (CSW)" wide="true"/>
+      <list name="Slots" type="obj">
+         <obj class="PSoundSlot" ID="10">
+            <string name="Name" value="Sustain / Legato" wide="true"/>
+            <int name="Status" value="176"/>
+            <int name="Data1" value="58"/>
+            <int name="Data2" value="0"/>
+            <int name="RemoteKey" value="24"/>
+            <int name="Color" value="1"/>
+            <int name="ArticType" value="1"/>
+         </obj>
+         <obj class="PSoundSlot" ID="11">
+            <string name="Name" value="Repetitions" wide="true"/>
+            <int name="Status" value="176"/>
+            <int name="Data1" value="58"/>
+            <int name="Data2" value="10"/>
+            <int name="RemoteKey" value="25"/>
+            <int name="Color" value="1"/>
+            <int name="ArticType" value="0"/>
+         </obj>
+         <obj class="PSoundSlot" ID="12">
+            <string name="Name" value="Staccatissimo" wide="true"/>
+            <int name="Status" value="176"/>
+            <int name="Data1" value="58"/>
+            <int name="Data2" value="20"/>
+            <int name="Color" value="1"/>
+            <int name="ArticType" value="0"/>
+         </obj>
+         <obj class="PSoundSlot" ID="13">
+            <string name="Name" value="Staccato" wide="true"/>
+            <int name="Status" value="176"/>
+            <int name="Data1" value="58"/>
+            <int name="Data2" value="40"/>
+            <int name="RemoteKey" value="26"/>
+            <int name="Color" value="1"/>
+            <int name="ArticType" value="0"/>
+         </obj>
+         <obj class="PSoundSlot" ID="14">
+            <string name="Name" value="Trills" wide="true"/>
+            <int name="Status" value="176"/>
+            <int name="Data1" value="58"/>
+            <int name="Data2" value="60"/>
+            <int name="RemoteKey" value="27"/>
+            <int name="Color" value="1"/>
+            <int name="ArticType" value="1"/>
+         </obj>
+         <obj class="PSoundSlot" ID="15">
+            <string name="Name" value="Marcato" wide="true"/>
+            <int name="Status" value="176"/>
+            <int name="Data1" value="58"/>
+            <int name="Data2" value="100"/>
+            <int name="RemoteKey" value="28"/>
+            <int name="Color" value="1"/>
+            <int name="ArticType" value="0"/>
+         </obj>
+         <obj class="PSoundSlot" ID="16">
+            <string name="Name" value="Flutter Tongue" wide="true"/>
+            <int name="Status" value="176"/>
+            <int name="Data1" value="58"/>
+            <int name="Data2" value="115"/>
+            <int name="RemoteKey" value="29"/>
+            <int name="Color" value="1"/>
+            <int name="ArticType" value="1"/>
+         </obj>
+      </list>
+   </obj>
+</instrumentList>

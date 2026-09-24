@@ -65,6 +65,8 @@ struct LibraryProfile {
 
 // Factory functions for built-in orchestral libraries
 LibraryProfile createCSSProfile();
+LibraryProfile createCSBProfile();
+LibraryProfile createCSWProfile();
 LibraryProfile createSpitfireUACCProfile();
 LibraryProfile createEastWestOpusProfile();
 LibraryProfile createVSLProfile();

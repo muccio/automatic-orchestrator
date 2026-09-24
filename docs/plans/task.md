@@ -13,3 +13,8 @@
 | Task 11: VST3 Plugin Processor & 16-Channel MIDI Dispatcher | Done | PluginProcessor.h/cpp, zero-allocation processBlock, MIDI routing |
 | Task 12: Modern Minimalist UI & Drag-and-Drop Handles | Done | Modern dark UI, real-time chord badge, matrix lanes, sequencers |
 | Task 13: End-to-End Orchestrator Verification Suite & Presets | Done | E2E integration tests, preset JSON files, full pipeline validation |
+| Task 14: Dedicated Articulation Presets for CSS, CSB, and CSW | Done | JSON presets and C++ LibraryProfiles for CSS, CSB, CSW |
+| Task 15: Cubase Track Archive XML & Kontakt 8 Orchestral Template | Done | Cubase Track Archive XML pre-configured with Kontakt 8 VST3 |
+| Task 16: Cubase Expression Maps for CSS, CSB, CSW | Done | Expression map XML files (.expressionmap) with CC58 mappings |
+| Task 17: Local System Installation & Verification | Done | Copy to Steinberg Track Presets and local VST3 directories |
+| Task 18: Build, Test Suite Execution & GitHub Release v1.1.0 | In Progress | Automated tests, Git commit/tag, zip asset, publish release v1.1.0 |

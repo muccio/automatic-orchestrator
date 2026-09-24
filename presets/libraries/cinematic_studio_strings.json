@@ -1,0 +1,39 @@
+{
+  "library": "Cinematic Studio Strings",
+  "abbreviation": "CSS",
+  "controlType": "CC",
+  "controllerNumber": 58,
+  "defaultChannels": {
+    "Violins1": 1,
+    "Violins2": 2,
+    "Violas": 3,
+    "Cellos": 4,
+    "DoubleBasses": 5
+  },
+  "ccMap": {
+    "Sustain": 0,
+    "Spiccato": 20,
+    "Staccatissimo": 30,
+    "Staccato": 40,
+    "Sfz": 50,
+    "Pizzicato": 60,
+    "BartokPizz": 65,
+    "ColLegno": 70,
+    "Tremolo": 80,
+    "Trills": 90,
+    "Marcato": 100,
+    "Harmonics": 110
+  },
+  "keyswitchMap": {
+    "Sustain": 24,
+    "Staccatissimo": 25,
+    "Staccato": 26,
+    "Pizzicato": 27,
+    "Marcato": 28,
+    "Tremolo": 29,
+    "Trills": 30,
+    "Harmonics": 31,
+    "ColLegno": 32
+  },
+  "notes": "CC58 triggers articulations across all CSS string sections. Sustain pedal (CC64) engages re-bowed legato or portamento when velocity < 20."
+}
