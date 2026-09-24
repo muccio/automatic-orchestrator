@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hollywood Orchestrator</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-dark text-slate-100 antialiased select-none">
+    <div class="orchestrator-app flex flex-col h-screen overflow-hidden">
+        <!-- Top Header Navigation & Status -->
+        <header class="header-bar flex items-center justify-between px-6 py-4 border-b border-border-color">
+            <div class="brand flex items-center space-x-3">
+                <div class="logo-badge bg-cyan-glow text-black font-extrabold px-2.5 py-1 rounded text-xs tracking-wider">HO</div>
+                <div>
+                    <h1 class="text-sm font-bold tracking-wide uppercase text-white">Hollywood Orchestrator</h1>
+                    <p class="text-[10px] text-cyan-400 font-mono tracking-widest uppercase">Universal VST3 MIDI Engine</p>
+                </div>
+            </div>
+
+            <!-- Central Chord & Harmonic Display -->
+            <div class="chord-monitor flex flex-col items-center">
+                <div class="chord-badge" id="chordBadge">READY</div>
+                <div class="chord-subtext" id="chordSubtext">Waiting for Live MIDI Input...</div>
+            </div>
+
+            <!-- Master Drag & Drop & Profile Presets -->
+            <div class="header-actions flex items-center space-x-4">
+                <div class="selector-group flex items-center space-x-2">
+                    <label for="patternSelect" class="text-xs text-slate-400 font-medium">Style</label>
+                    <select id="patternSelect" class="styled-select">
+                        <option value="action_ostinato">Action Ostinato</option>
+                        <option value="epic_fanfare">Epic Brass Fanfare</option>
+                        <option value="lyrical_adagio">Lyrical Adagio</option>
+                        <option value="suspense_mystery">Suspense Mystery</option>
+                    </select>
+                </div>
+
+                <div class="selector-group flex items-center space-x-2">
+                    <label for="modeSelect" class="text-xs text-slate-400 font-medium">Mode</label>
+                    <select id="modeSelect" class="styled-select">
+                        <option value="0">Ionian (Major)</option>
+                        <option value="1">Dorian</option>
+                        <option value="2">Phrygian</option>
+                        <option value="3">Lydian (#11)</option>
+                        <option value="4">Mixolydian</option>
+                        <option value="5">Aeolian (Minor)</option>
+                        <option value="6">Harmonic Minor</option>
+                        <option value="7">Whole-Tone</option>
+                        <option value="8">Octatonic</option>
+                    </select>
+                </div>
+
+                <button class="drag-btn master-drag" id="btnMasterDrag" draggable="true" title="Drag to Cubase Timeline">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                    DRAG MASTER MIDI (16 CH)
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Orchestral Matrix -->
+        <main class="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+            <!-- Strings Section -->
+            <section class="section-card strings-card">
+                <div class="section-header flex items-center justify-between pb-2 border-b border-border-color/50">
+                    <div class="flex items-center space-x-3">
+                        <span class="indicator-bar bg-teal-400"></span>
+                        <h2 class="text-xs font-bold uppercase tracking-wider text-teal-300">Strings Section (MIDI Ch 1 - 5)</h2>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button class="stem-drag-btn" data-stem="violins1">Stem Vln 1</button>
+                        <button class="stem-drag-btn" data-stem="cellos">Stem Cello</button>
+                    </div>
+                </div>
+                <div class="track-row" id="row-violins1">
+                    <span class="track-name">Violins 1</span>
+                    <span class="track-ch">Ch 1</span>
+                    <div class="step-grid" data-track="violins1"></div>
+                </div>
+                <div class="track-row" id="row-cellos">
+                    <span class="track-name">Cellos</span>
+                    <span class="track-ch">Ch 4</span>
+                    <div class="step-grid" data-track="cellos"></div>
+                </div>
+            </section>
+
+            <!-- Brass Section -->
+            <section class="section-card brass-card">
+                <div class="section-header flex items-center justify-between pb-2 border-b border-border-color/50">
+                    <div class="flex items-center space-x-3">
+                        <span class="indicator-bar bg-amber-400"></span>
+                        <h2 class="text-xs font-bold uppercase tracking-wider text-amber-300">Brass Section (MIDI Ch 6 - 9)</h2>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button class="stem-drag-btn" data-stem="frenchHorns">Stem Horns</button>
+                        <button class="stem-drag-btn" data-stem="trumpets">Stem Tpt</button>
+                    </div>
+                </div>
+                <div class="track-row" id="row-horns">
+                    <span class="track-name">French Horns</span>
+                    <span class="track-ch">Ch 7</span>
+                    <div class="step-grid" data-track="horns"></div>
+                </div>
+                <div class="track-row" id="row-trumpets">
+                    <span class="track-name">Trumpets</span>
+                    <span class="track-ch">Ch 6</span>
+                    <div class="step-grid" data-track="trumpets"></div>
+                </div>
+            </section>
+
+            <!-- Woodwinds Section -->
+            <section class="section-card woodwinds-card">
+                <div class="section-header flex items-center justify-between pb-2 border-b border-border-color/50">
+                    <div class="flex items-center space-x-3">
+                        <span class="indicator-bar bg-emerald-400"></span>
+                        <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-300">Woodwinds (MIDI Ch 10 - 13)</h2>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button class="stem-drag-btn" data-stem="flutes">Stem Flute</button>
+                        <button class="stem-drag-btn" data-stem="clarinets">Stem Clr</button>
+                    </div>
+                </div>
+                <div class="track-row" id="row-flutes">
+                    <span class="track-name">Flutes</span>
+                    <span class="track-ch">Ch 10</span>
+                    <div class="step-grid" data-track="flutes"></div>
+                </div>
+            </section>
+
+            <!-- Percussion Section -->
+            <section class="section-card perc-card">
+                <div class="section-header flex items-center justify-between pb-2 border-b border-border-color/50">
+                    <div class="flex items-center space-x-3">
+                        <span class="indicator-bar bg-rose-400"></span>
+                        <h2 class="text-xs font-bold uppercase tracking-wider text-rose-300">Percussion (MIDI Ch 14 - 16)</h2>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button class="stem-drag-btn" data-stem="timpani">Stem Timp</button>
+                    </div>
+                </div>
+                <div class="track-row" id="row-timpani">
+                    <span class="track-name">Timpani</span>
+                    <span class="track-ch">Ch 14</span>
+                    <div class="step-grid" data-track="timpani"></div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Bottom Controls & Harmonic Modifiers -->
+        <footer class="footer-bar flex items-center justify-between px-6 py-3 border-t border-border-color bg-surface-dark">
+            <div class="flex items-center space-x-6">
+                <div class="control-box">
+                    <label class="control-label">Voicing</label>
+                    <select id="voicingSelect" class="styled-select text-xs">
+                        <option value="acoustic_pyramid">Acoustic Pyramid</option>
+                        <option value="drop2">Drop-2 Voicing</option>
+                        <option value="drop4">Drop-4 Voicing</option>
+                    </select>
+                </div>
+
+                <div class="control-box">
+                    <label class="control-label">Target Library Profile</label>
+                    <select id="librarySelect" class="styled-select text-xs">
+                        <option value="css">Cinematic Studio Series (CC58)</option>
+                        <option value="spitfire">Spitfire Audio (UACC CC32)</option>
+                        <option value="opus">EastWest Hollywood Opus (KS)</option>
+                        <option value="vsl">VSL Synchron</option>
+                        <option value="kontakt">Kontakt Factory</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Randomization & Humanization Controls -->
+            <div class="flex items-center space-x-6">
+                <div class="slider-control">
+                    <span class="slider-title">Inversion Jitter</span>
+                    <input type="range" id="sliderJitter" min="0" max="100" value="0" class="mini-slider">
+                    <span class="slider-val" id="valJitter">0%</span>
+                </div>
+
+                <div class="slider-control">
+                    <span class="slider-title">Modal Color</span>
+                    <input type="range" id="sliderColor" min="0" max="100" value="0" class="mini-slider">
+                    <span class="slider-val" id="valColor">0%</span>
+                </div>
+
+                <div class="slider-control">
+                    <span class="slider-title">Humanize</span>
+                    <input type="range" id="sliderHuman" min="0" max="20" value="5" class="mini-slider">
+                    <span class="slider-val" id="valHuman">5</span>
+                </div>
+
+                <div class="slider-control">
+                    <span class="slider-title">Grace Window</span>
+                    <input type="range" id="sliderGrace" min="10" max="40" value="25" class="mini-slider">
+                    <span class="slider-val" id="valGrace">25ms</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

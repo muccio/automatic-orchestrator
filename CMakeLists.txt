@@ -86,6 +86,10 @@ if(EXISTS "${JUCE_DIR}/CMakeLists.txt")
         ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
 
+    target_compile_definitions(HollywoodOrchestrator PRIVATE
+        JUCE_VST3_CAN_REPLACE_VST2=0
+    )
+
     target_link_libraries(HollywoodOrchestrator PRIVATE
         orchestrator_core
         juce::juce_audio_utils

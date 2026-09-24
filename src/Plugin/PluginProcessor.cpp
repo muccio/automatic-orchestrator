@@ -97,9 +97,9 @@ void HollywoodOrchestratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
 
     if (auto* playHead = getPlayHead()) {
         auto posOpt = playHead->getPosition();
-        if (posOpt.has_value()) {
-            if (posOpt->getBpm().has_value()) bpm = *posOpt->getBpm();
-            if (posOpt->getPpqPosition().has_value()) hostPpq = *posOpt->getPpqPosition();
+        if (posOpt.hasValue()) {
+            if (posOpt->getBpm().hasValue()) bpm = *posOpt->getBpm();
+            if (posOpt->getPpqPosition().hasValue()) hostPpq = *posOpt->getPpqPosition();
             isPlaying = posOpt->getIsPlaying();
         }
     }
