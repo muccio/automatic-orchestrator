@@ -1,0 +1,19 @@
+{
+  "name": "Fantasy Adventure 6/8",
+  "category": "Adventure / Fantasy",
+  "bpm": 124,
+  "timeSignature": "6/8",
+  "voicingStyle": "AcousticPyramid",
+  "preferredMode": "Dorian",
+  "tracks": {
+    "Violins1":     { "channel": 1, "articulation": "Spiccato", "division": 0.1667, "action": "ArpUp",    "gate": 0.65 },
+    "Violins2":     { "channel": 2, "articulation": "Spiccato", "division": 0.1667, "action": "Ostinato", "gate": 0.60 },
+    "Violas":       { "channel": 3, "articulation": "Spiccato", "division": 0.1667, "action": "Ostinato", "gate": 0.60 },
+    "Cellos":       { "channel": 4, "articulation": "Marcato",  "division": 0.50,   "action": "Ostinato", "gate": 0.80 },
+    "DoubleBasses": { "channel": 5, "articulation": "Marcato",  "division": 0.50,   "action": "Ostinato", "gate": 0.80 },
+    "FrenchHorns":  { "channel": 7, "articulation": "Marcato",  "division": 0.3333, "action": "Ostinato", "gate": 0.75 },
+    "Trumpets":     { "channel": 6, "articulation": "Staccato", "division": 0.50,   "action": "Ostinato", "gate": 0.60 },
+    "Flutes":       { "channel": 10, "articulation": "Runs",    "division": 0.1667, "action": "ArpUp",    "gate": 0.70 },
+    "Timpani":      { "channel": 14, "articulation": "Marcato", "division": 0.50,   "action": "Ostinato", "gate": 0.90 }
+  }
+}

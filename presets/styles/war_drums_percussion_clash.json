@@ -1,0 +1,18 @@
+{
+  "name": "War Drums & Brass Rip",
+  "category": "Cinematic Battle",
+  "bpm": 110,
+  "timeSignature": "4/4",
+  "voicingStyle": "AcousticPyramid",
+  "preferredMode": "HarmonicMinor",
+  "tracks": {
+    "Timpani":      { "channel": 14, "articulation": "Marcato", "division": 0.25, "action": "Ostinato", "gate": 0.70 },
+    "OrchestralPerc": { "channel": 15, "articulation": "Marcato", "division": 0.25, "action": "Ostinato", "gate": 0.70 },
+    "Tuba":         { "channel": 9,  "articulation": "Marcato", "division": 0.50, "action": "Ostinato", "gate": 0.85 },
+    "Trombones":    { "channel": 8,  "articulation": "Marcato", "division": 0.50, "action": "Ostinato", "gate": 0.75 },
+    "Trumpets":     { "channel": 6,  "articulation": "Marcato", "division": 0.25, "action": "Ostinato", "gate": 0.50 },
+    "FrenchHorns":  { "channel": 7,  "articulation": "Marcato", "division": 0.50, "action": "Ostinato", "gate": 0.80 },
+    "Cellos":       { "channel": 4,  "articulation": "Spiccato", "division": 0.25, "action": "Ostinato", "gate": 0.45 },
+    "DoubleBasses": { "channel": 5,  "articulation": "Spiccato", "division": 0.25, "action": "Ostinato", "gate": 0.45 }
+  }
+}

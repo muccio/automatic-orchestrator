@@ -1,0 +1,18 @@
+{
+  "name": "Cyberpunk Hybrid Pulse",
+  "category": "Sci-Fi / Modern Hybrid",
+  "bpm": 138,
+  "timeSignature": "4/4",
+  "voicingStyle": "Drop4",
+  "preferredMode": "Phrygian",
+  "tracks": {
+    "Violins1":     { "channel": 1, "articulation": "Spiccato", "division": 0.25, "action": "Ostinato", "gate": 0.40 },
+    "Violins2":     { "channel": 2, "articulation": "Spiccato", "division": 0.25, "action": "Ostinato", "gate": 0.40 },
+    "Violas":       { "channel": 3, "articulation": "Marcato",  "division": 0.25, "action": "Ostinato", "gate": 0.50 },
+    "Cellos":       { "channel": 4, "articulation": "Marcato",  "division": 0.25, "action": "Ostinato", "gate": 0.60 },
+    "DoubleBasses": { "channel": 5, "articulation": "Marcato",  "division": 0.25, "action": "Ostinato", "gate": 0.70 },
+    "Tuba":         { "channel": 9, "articulation": "Marcato",  "division": 0.25, "action": "Ostinato", "gate": 0.75 },
+    "Trombones":    { "channel": 8, "articulation": "Marcato",  "division": 0.25, "action": "Ostinato", "gate": 0.60 },
+    "Timpani":      { "channel": 14, "articulation": "Marcato", "division": 0.25, "action": "Ostinato", "gate": 0.80 }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "Sci-Fi Mystery Lydian",
+  "category": "Space / Mystery",
+  "bpm": 74,
+  "timeSignature": "4/4",
+  "voicingStyle": "OpenVoicing",
+  "preferredMode": "Lydian",
+  "tracks": {
+    "Violins1":     { "channel": 1, "articulation": "Tremolo",  "division": 0.25, "action": "ArpUp",    "gate": 0.90 },
+    "Violins2":     { "channel": 2, "articulation": "Tremolo",  "division": 0.25, "action": "ArpDown",  "gate": 0.90 },
+    "Violas":       { "channel": 3, "articulation": "Sustain",  "division": 1.00, "action": "Sustain",  "gate": 1.00 },
+    "Cellos":       { "channel": 4, "articulation": "Sustain",  "division": 1.00, "action": "Sustain",  "gate": 1.00 },
+    "DoubleBasses": { "channel": 5, "articulation": "Sustain",  "division": 1.00, "action": "Sustain",  "gate": 1.00 },
+    "Flutes":       { "channel": 10, "articulation": "Sustain", "division": 0.50, "action": "ArpUpDown","gate": 0.85 },
+    "FrenchHorns":  { "channel": 7, "articulation": "Sustain",  "division": 1.00, "action": "Sustain",  "gate": 1.00 }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "Romantic Viennese Waltz",
+  "category": "Classical / Romantic",
+  "bpm": 156,
+  "timeSignature": "3/4",
+  "voicingStyle": "AcousticPyramid",
+  "preferredMode": "Ionian",
+  "tracks": {
+    "Violins1":     { "channel": 1, "articulation": "Sustain",   "division": 1.00, "action": "Sustain",  "gate": 1.00 },
+    "Violins2":     { "channel": 2, "articulation": "Pizzicato", "division": 0.3333, "action": "Ostinato", "gate": 0.40 },
+    "Violas":       { "channel": 3, "articulation": "Pizzicato", "division": 0.3333, "action": "Ostinato", "gate": 0.40 },
+    "Cellos":       { "channel": 4, "articulation": "Pizzicato", "division": 1.00, "action": "Ostinato", "gate": 0.60 },
+    "DoubleBasses": { "channel": 5, "articulation": "Pizzicato", "division": 1.00, "action": "Ostinato", "gate": 0.60 },
+    "Flutes":       { "channel": 10, "articulation": "Sustain",  "division": 1.00, "action": "ArpUp",    "gate": 0.80 },
+    "Clarinets":    { "channel": 12, "articulation": "Sustain",  "division": 1.00, "action": "Sustain",  "gate": 0.90 }
+  }
+}

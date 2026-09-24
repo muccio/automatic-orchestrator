@@ -1,0 +1,16 @@
+{
+  "name": "Spooky Horror Cluster",
+  "category": "Horror / Tension",
+  "bpm": 60,
+  "timeSignature": "4/4",
+  "voicingStyle": "OpenVoicing",
+  "preferredMode": "Octatonic",
+  "tracks": {
+    "Violins1": { "channel": 1, "articulation": "Tremolo", "division": 0.25, "action": "Ostinato", "gate": 0.95 },
+    "Violins2": { "channel": 2, "articulation": "Tremolo", "division": 0.25, "action": "ArpRandom", "gate": 0.85 },
+    "Violas":   { "channel": 3, "articulation": "Tremolo", "division": 0.25, "action": "Ostinato", "gate": 0.95 },
+    "Cellos":   { "channel": 4, "articulation": "Sustain", "division": 1.00, "action": "Sustain",  "gate": 1.00 },
+    "DoubleBasses": { "channel": 5, "articulation": "Sustain", "division": 1.00, "action": "Sustain", "gate": 1.00 },
+    "Bassoons": { "channel": 13, "articulation": "Staccato", "division": 0.25, "action": "ArpDown", "gate": 0.40 }
+  }
+}
