@@ -24,6 +24,7 @@ add_library(orchestrator_core STATIC
     src/Sequencer/SequencerEngine.cpp
     src/Articulation/ArticulationMap.cpp
     src/MidiExport/StandardMidiWriter.cpp
+    src/Converter/MidiPresetConverter.cpp
 )
 
 target_include_directories(orchestrator_core PUBLIC
@@ -34,6 +35,7 @@ target_include_directories(orchestrator_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Sequencer
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Articulation
     ${CMAKE_CURRENT_SOURCE_DIR}/src/MidiExport
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Converter
 )
 
 # Test Suite Executable
@@ -50,6 +52,7 @@ add_executable(orchestrator_tests
     tests/TestMidiWriter.cpp
     tests/TestPluginProcessor.cpp
     tests/TestIntegrationE2E.cpp
+    tests/TestMidiPresetConverter.cpp
 )
 
 target_include_directories(orchestrator_tests PRIVATE
@@ -58,6 +61,15 @@ target_include_directories(orchestrator_tests PRIVATE
 )
 
 target_link_libraries(orchestrator_tests PRIVATE orchestrator_core)
+
+# CLI Converter Executable
+add_executable(midi_preset_cli
+    src/Converter/ConverterCliMain.cpp
+)
+target_include_directories(midi_preset_cli PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_link_libraries(midi_preset_cli PRIVATE orchestrator_core)
 
 # Optional JUCE Plugin Target
 set(JUCE_DIR "/Users/mariosalvucci/Documents/Development/JUCE" CACHE PATH "Path to local JUCE installation")
@@ -101,6 +113,32 @@ if(EXISTS "${JUCE_DIR}/CMakeLists.txt")
     )
 
     juce_generate_juce_header(AutomaticOrchestrator)
+
+    # Standalone GUI Wizard App: Automatic Orchestrator - MIDI Converter
+    juce_add_gui_app(AutomaticOrchestratorConverter
+        PRODUCT_NAME "Automatic Orchestrator - MIDI Converter"
+        COMPANY_NAME "OrchestratorLab"
+        VERSION 1.0.0
+    )
+
+    target_sources(AutomaticOrchestratorConverter PRIVATE
+        src/Converter/ConverterApp.cpp
+    )
+
+    target_include_directories(AutomaticOrchestratorConverter PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    target_link_libraries(AutomaticOrchestratorConverter PRIVATE
+        orchestrator_core
+        juce::juce_gui_extra
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_lto_flags
+        juce::juce_recommended_warning_flags
+    )
+
+    juce_generate_juce_header(AutomaticOrchestratorConverter)
 else()
     message(WARNING "JUCE not found at ${JUCE_DIR}. Plugin targets will be skipped, building core and test suite.")
 endif()
+

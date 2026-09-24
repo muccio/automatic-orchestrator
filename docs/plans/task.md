@@ -29,3 +29,7 @@
 | Task 28: Dynamic Section Track Management (+ Add / Remove Instrument) | Done | Dynamic + Add Instrument popup menu, custom channel & articulation initialization |
 | Task 29: Multi-Track Ghost Notes Overlay & Section Transparency Palette | Done | Translucent ghost notes rendered in StepGrid for all other instruments in active section |
 | Task 30: Interactive Orchestral MIXER View vs MAIN Arranger View | Done | Full view switching: MAIN Arranger & 16-channel MIXER console with animated LED meters, faders, pan |
+| Task 31: Core MIDI-to-Preset Converter Engine & Tonal Analysis | Done | Pure C++20 SMF parser, Krumhansl-Schmuckler pitch class correlation, key/mode detection, instrument & articulation recognition |
+| Task 32: Guided Step-by-Step Converter Standalone GUI Application | Done | Multi-step wizard GUI app with file drag-and-drop, pitch-class histogram, instrument mapper, direct preset saving |
+| Task 33: Command-Line Interface (CLI) Converter Utility | Done | Headless executable midi_preset_cli for automated terminal-based MIDI-to-preset conversion |
+| Task 34: Converter Test Suite & Local Installation | Done | 32/32 tests passing; Automatic Orchestrator - MIDI Converter.app installed to /Applications |
