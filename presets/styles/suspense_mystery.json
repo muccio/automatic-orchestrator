@@ -1,0 +1,15 @@
+{
+  "name": "Suspense Mystery",
+  "category": "Cinematic Thriller",
+  "bpm": 85,
+  "timeSignature": "4/4",
+  "voicingStyle": "OpenVoicing",
+  "preferredMode": "WholeTone",
+  "tracks": {
+    "Violins1": { "channel": 1, "articulation": "Tremolo", "division": 0.25, "action": "Ostinato", "gate": 0.95 },
+    "Violins2": { "channel": 2, "articulation": "Tremolo", "division": 0.25, "action": "Ostinato", "gate": 0.95 },
+    "Violas":   { "channel": 3, "articulation": "Tremolo", "division": 0.25, "action": "Ostinato", "gate": 0.95 },
+    "Cellos":   { "channel": 4, "articulation": "Sustain", "division": 1.00, "action": "Sustain",  "gate": 1.00 },
+    "Bassoons": { "channel": 13, "articulation": "Staccato", "division": 0.25, "action": "ArpDown", "gate": 0.60 }
+  }
+}

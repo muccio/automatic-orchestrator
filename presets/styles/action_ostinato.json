@@ -1,0 +1,19 @@
+{
+  "name": "Action Ostinato",
+  "category": "Cinematic Action",
+  "bpm": 130,
+  "timeSignature": "4/4",
+  "voicingStyle": "AcousticPyramid",
+  "preferredMode": "Dorian",
+  "tracks": {
+    "Violins1": { "channel": 1, "articulation": "Spiccato", "division": 0.25, "action": "Ostinato", "gate": 0.55 },
+    "Violins2": { "channel": 2, "articulation": "Spiccato", "division": 0.25, "action": "Ostinato", "gate": 0.55 },
+    "Violas":   { "channel": 3, "articulation": "Spiccato", "division": 0.25, "action": "Ostinato", "gate": 0.55 },
+    "Cellos":   { "channel": 4, "articulation": "Marcato",  "division": 0.25, "action": "Ostinato", "gate": 0.70 },
+    "DoubleBasses": { "channel": 5, "articulation": "Marcato", "division": 0.25, "action": "Ostinato", "gate": 0.70 },
+    "FrenchHorns":  { "channel": 7, "articulation": "Sustain", "division": 1.0,  "action": "Sustain",  "gate": 1.00 },
+    "Trumpets":     { "channel": 6, "articulation": "Staccato", "division": 0.25, "action": "Ostinato", "gate": 0.60 },
+    "Flutes":       { "channel": 10, "articulation": "Runs",   "division": 0.25, "action": "ArpUp",    "gate": 0.80 },
+    "Timpani":      { "channel": 14, "articulation": "Marcato", "division": 0.50, "action": "Ostinato", "gate": 0.85 }
+  }
+}

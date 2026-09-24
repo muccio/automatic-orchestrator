@@ -1,0 +1,13 @@
+{
+  "library": "Cinematic Studio Series",
+  "controlType": "CC",
+  "controllerNumber": 58,
+  "map": {
+    "Sustain": 0,
+    "Spiccato": 20,
+    "Staccato": 40,
+    "Pizzicato": 60,
+    "Tremolo": 80,
+    "Marcato": 100
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "Epic Brass Fanfare",
+  "category": "Heroic",
+  "bpm": 115,
+  "timeSignature": "4/4",
+  "voicingStyle": "Drop2",
+  "preferredMode": "Mixolydian",
+  "tracks": {
+    "Trumpets":    { "channel": 6, "articulation": "Marcato", "division": 0.25, "action": "Ostinato", "gate": 0.75 },
+    "FrenchHorns": { "channel": 7, "articulation": "Marcato", "division": 0.25, "action": "Ostinato", "gate": 0.75 },
+    "Trombones":   { "channel": 8, "articulation": "Sustain", "division": 1.00, "action": "Sustain",  "gate": 1.00 },
+    "Tuba":        { "channel": 9, "articulation": "Marcato", "division": 0.50, "action": "Ostinato", "gate": 0.80 },
+    "Timpani":     { "channel": 14, "articulation": "Marcato", "division": 0.50, "action": "Ostinato", "gate": 0.90 }
+  }
+}

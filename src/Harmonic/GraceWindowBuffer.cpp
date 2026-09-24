@@ -39,10 +39,8 @@ void GraceWindowBuffer::handleNoteOff(int pitch, double timestamp) {
         pedalSustained[pitch] = true;
     } else {
         pedalSustained[pitch] = false;
-        // Key released without pedal: re-evaluate if no window active
-        if (!windowActive) {
-            evaluateAndDispatch();
-        }
+        lastNoteArrival = currentTime;
+        windowActive = true;
     }
 }
 
@@ -60,9 +58,8 @@ void GraceWindowBuffer::handleController(int controllerNumber, int value, double
                     pedalSustained[i] = false;
                 }
             }
-            if (!windowActive) {
-                evaluateAndDispatch();
-            }
+            lastNoteArrival = currentTime;
+            windowActive = true;
         }
     }
 }

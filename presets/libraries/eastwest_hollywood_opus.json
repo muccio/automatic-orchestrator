@@ -1,0 +1,13 @@
+{
+  "library": "EastWest Hollywood Opus",
+  "controlType": "Keyswitch",
+  "octaveOffset": -2,
+  "map": {
+    "Sustain": 24,
+    "Staccato": 26,
+    "Spiccato": 28,
+    "Marcato": 29,
+    "Tremolo": 31,
+    "Pizzicato": 33
+  }
+}

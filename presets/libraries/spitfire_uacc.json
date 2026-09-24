@@ -1,0 +1,13 @@
+{
+  "library": "Spitfire Audio (UACC)",
+  "controlType": "CC",
+  "controllerNumber": 32,
+  "map": {
+    "Sustain": 1,
+    "Marcato": 9,
+    "Tremolo": 11,
+    "Staccato": 40,
+    "Spiccato": 42,
+    "Pizzicato": 56
+  }
+}

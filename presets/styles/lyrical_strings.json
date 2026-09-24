@@ -1,0 +1,16 @@
+{
+  "name": "Lyrical Strings Adagio",
+  "category": "Emotional",
+  "bpm": 68,
+  "timeSignature": "4/4",
+  "voicingStyle": "AcousticPyramid",
+  "preferredMode": "Ionian",
+  "tracks": {
+    "Violins1":     { "channel": 1, "articulation": "Sustain", "division": 1.0, "action": "Sustain", "gate": 1.0 },
+    "Violins2":     { "channel": 2, "articulation": "Sustain", "division": 1.0, "action": "Sustain", "gate": 1.0 },
+    "Violas":       { "channel": 3, "articulation": "Sustain", "division": 1.0, "action": "Sustain", "gate": 1.0 },
+    "Cellos":       { "channel": 4, "articulation": "Sustain", "division": 1.0, "action": "Sustain", "gate": 1.0 },
+    "DoubleBasses": { "channel": 5, "articulation": "Sustain", "division": 1.0, "action": "Sustain", "gate": 1.0 },
+    "FrenchHorns":  { "channel": 7, "articulation": "Sustain", "division": 1.0, "action": "Sustain", "gate": 1.0 }
+  }
+}
