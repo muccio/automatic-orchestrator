@@ -82,6 +82,18 @@ TEST_CASE(ChordDetector, SeventhChords) {
     ASSERT_EQ(cMaj7.rootPitchClass, 0); // C
     ASSERT_EQ(cMaj7.chordName, "CMaj7");
 
+    // C Maj7 open voicing with deep bass (C2, C3, G3, E4, B4)
+    auto cMaj7Open = detector.detectChord({36, 48, 55, 64, 71});
+    ASSERT_EQ(cMaj7Open.quality, Harmonic::ChordQuality::Major7);
+    ASSERT_EQ(cMaj7Open.rootPitchClass, 0);
+    ASSERT_EQ(cMaj7Open.chordName, "CMaj7");
+
+    // C Maj7 no-5th voicing (C3, E3, B3)
+    auto cMaj7No5th = detector.detectChord({48, 52, 59});
+    ASSERT_EQ(cMaj7No5th.quality, Harmonic::ChordQuality::Major7);
+    ASSERT_EQ(cMaj7No5th.rootPitchClass, 0);
+    ASSERT_EQ(cMaj7No5th.chordName, "CMaj7");
+
     // A Min7 (A2, C3, E3, G3)
     auto aMin7 = detector.detectChord({45, 48, 52, 55});
     ASSERT_EQ(aMin7.quality, Harmonic::ChordQuality::Minor7);

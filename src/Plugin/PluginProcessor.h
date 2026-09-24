@@ -12,10 +12,10 @@
 #include <atomic>
 #include <mutex>
 
-class HollywoodOrchestratorAudioProcessor : public juce::AudioProcessor {
+class AutomaticOrchestratorAudioProcessor : public juce::AudioProcessor {
 public:
-    HollywoodOrchestratorAudioProcessor();
-    ~HollywoodOrchestratorAudioProcessor() override;
+    AutomaticOrchestratorAudioProcessor();
+    ~AutomaticOrchestratorAudioProcessor() override;
 
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
@@ -51,7 +51,40 @@ public:
     void setLibraryProfile(const Articulation::LibraryProfile& profile);
 
     void setStylePattern(const Sequencer::OrchestralPattern& pattern);
-    const Sequencer::OrchestralPattern& getCurrentPattern() const;
+    const Sequencer::OrchestralPattern getCurrentPattern() const;
+
+    // Interactive Arranger Track & Step Editing
+    void setTrackStep(Harmonic::InstrumentId inst, int stepIndex, bool active, int stepOffset, int velocity, Harmonic::ArticulationType art) {
+        sequencerEngine.setTrackStep(inst, stepIndex, active, stepOffset, velocity, art);
+    }
+    void setTrackArticulation(Harmonic::InstrumentId inst, Harmonic::ArticulationType art) {
+        sequencerEngine.setTrackArticulation(inst, art);
+    }
+    void setTrackMode(Harmonic::InstrumentId inst, const std::string& mode) {
+        sequencerEngine.setTrackMode(inst, mode);
+    }
+    void setTrackOctave(Harmonic::InstrumentId inst, int octave) {
+        sequencerEngine.setTrackOctave(inst, octave);
+    }
+    void setTrackVolume(Harmonic::InstrumentId inst, float vol) {
+        sequencerEngine.setTrackVolume(inst, vol);
+    }
+    void setTrackMute(Harmonic::InstrumentId inst, bool mute) {
+        sequencerEngine.setTrackMute(inst, mute);
+    }
+    void setTrackSolo(Harmonic::InstrumentId inst, bool solo) {
+        sequencerEngine.setTrackSolo(inst, solo);
+    }
+    void setTrackCc1(Harmonic::InstrumentId inst, int stepIndex, int cc1Val) {
+        sequencerEngine.setTrackCc1(inst, stepIndex, cc1Val);
+    }
+    int getCurrentStep() const { return sequencerEngine.getCurrentStep(); }
+
+    void setTempoBpm(double bpm) { sequencerEngine.setTempo(bpm); }
+    double getTempoBpm() const { return sequencerEngine.getTempo(); }
+
+    void setModalSnappingEnabled(bool enabled) { modalSnappingEnabled.store(enabled); }
+    bool isModalSnappingEnabled() const { return modalSnappingEnabled.load(); }
 
     // Harmonic & Transport Query for GUI
     std::string getCurrentChordName() const;
@@ -80,6 +113,7 @@ private:
 
     std::atomic<Harmonic::ScaleMode> currentScaleMode{Harmonic::ScaleMode::Ionian};
     std::atomic<Orchestration::VoicingStyle> currentVoicingStyle{Orchestration::VoicingStyle::AcousticPyramid};
+    std::atomic<bool> modalSnappingEnabled{false};
 
     mutable std::mutex stateMutex;
     Harmonic::HarmonicFrame lastFrame;
@@ -89,5 +123,7 @@ private:
     double currentSampleRate = 44100.0;
     std::vector<Sequencer::ScheduledMidiEvent> scheduledBuffer;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(HollywoodOrchestratorAudioProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AutomaticOrchestratorAudioProcessor)
 };
+
+using HollywoodOrchestratorAudioProcessor = AutomaticOrchestratorAudioProcessor;

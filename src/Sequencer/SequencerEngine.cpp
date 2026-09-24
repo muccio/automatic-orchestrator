@@ -8,8 +8,153 @@ SequencerEngine::SequencerEngine() {
     activePattern = createActionOstinatoPattern();
 }
 
+void SequencerEngine::setPattern(const OrchestralPattern& pattern) {
+    std::lock_guard<std::mutex> lock(patternMutex);
+    activePattern = pattern;
+    tempoBpm = pattern.bpm > 0 ? pattern.bpm : 120.0;
+}
+
+OrchestralPattern SequencerEngine::getPattern() const {
+    std::lock_guard<std::mutex> lock(patternMutex);
+    return activePattern;
+}
+
 void SequencerEngine::updateVoicing(const Harmonic::OrchestralVoicing& voicing) {
     currentVoicing = voicing;
+}
+
+void SequencerEngine::setTrackStep(Harmonic::InstrumentId inst, int stepIndex, bool active, int stepOffset, int velocity, Harmonic::ArticulationType art) {
+    std::lock_guard<std::mutex> lock(patternMutex);
+    if (activePattern.tracks.find(inst) != activePattern.tracks.end()) {
+        auto& track = activePattern.tracks[inst];
+        if (stepIndex >= 0 && stepIndex < (int)track.steps.size()) {
+            track.steps[stepIndex].active = active;
+            track.steps[stepIndex].stepOffset = stepOffset;
+            track.steps[stepIndex].velocity = std::clamp(velocity, 1, 127);
+            track.steps[stepIndex].articulation = art;
+            track.steps[stepIndex].action = active ? Harmonic::StepActionType::Ostinato : Harmonic::StepActionType::Rest;
+        }
+    }
+}
+
+void SequencerEngine::setTrackArticulation(Harmonic::InstrumentId inst, Harmonic::ArticulationType art) {
+    std::lock_guard<std::mutex> lock(patternMutex);
+    if (activePattern.tracks.find(inst) != activePattern.tracks.end()) {
+        auto& track = activePattern.tracks[inst];
+        track.articulation = art;
+        for (auto& s : track.steps) {
+            s.articulation = art;
+        }
+    }
+}
+
+void SequencerEngine::setTrackMode(Harmonic::InstrumentId inst, const std::string& mode) {
+    std::lock_guard<std::mutex> lock(patternMutex);
+    if (activePattern.tracks.find(inst) != activePattern.tracks.end()) {
+        activePattern.tracks[inst].arrangerMode = mode;
+    }
+}
+
+void SequencerEngine::setTrackOctave(Harmonic::InstrumentId inst, int octave) {
+    std::lock_guard<std::mutex> lock(patternMutex);
+    if (activePattern.tracks.find(inst) != activePattern.tracks.end()) {
+        activePattern.tracks[inst].octaveOffset = std::clamp(octave, -2, 2);
+    }
+}
+
+void SequencerEngine::setTrackVolume(Harmonic::InstrumentId inst, float vol) {
+    std::lock_guard<std::mutex> lock(patternMutex);
+    if (activePattern.tracks.find(inst) != activePattern.tracks.end()) {
+        activePattern.tracks[inst].volume = std::clamp(vol, 0.0f, 1.0f);
+    }
+}
+
+void SequencerEngine::setTrackMute(Harmonic::InstrumentId inst, bool mute) {
+    std::lock_guard<std::mutex> lock(patternMutex);
+    if (activePattern.tracks.find(inst) != activePattern.tracks.end()) {
+        activePattern.tracks[inst].isMuted = mute;
+    }
+}
+
+void SequencerEngine::setTrackSolo(Harmonic::InstrumentId inst, bool solo) {
+    std::lock_guard<std::mutex> lock(patternMutex);
+    if (activePattern.tracks.find(inst) != activePattern.tracks.end()) {
+        activePattern.tracks[inst].isSolo = solo;
+    }
+}
+
+void SequencerEngine::setTrackCc1(Harmonic::InstrumentId inst, int stepIndex, int cc1Val) {
+    std::lock_guard<std::mutex> lock(patternMutex);
+    if (activePattern.tracks.find(inst) != activePattern.tracks.end()) {
+        auto& track = activePattern.tracks[inst];
+        if (stepIndex >= 0 && stepIndex < (int)track.cc1Curve.size()) {
+            track.cc1Curve[stepIndex] = std::clamp(cc1Val, 0, 127);
+        }
+    }
+}
+
+int SequencerEngine::computeRelativeStepPitch(Harmonic::InstrumentId inst,
+                                             const TrackPattern& track,
+                                             const StepDefinition& stepDef,
+                                             int basePitch) {
+    // Collect unique pitch classes from current harmonic frame
+    std::vector<int> chordPcs;
+    for (int p : currentVoicing.sourceHarmonic.pitches) {
+        chordPcs.push_back((p % 12 + 12) % 12);
+    }
+    if (chordPcs.empty()) {
+        chordPcs = {0, 4, 7}; // Default C Major triad
+    }
+    std::sort(chordPcs.begin(), chordPcs.end());
+    chordPcs.erase(std::unique(chordPcs.begin(), chordPcs.end()), chordPcs.end());
+
+    int workingBase = basePitch;
+
+    // Apply Arranger Mode
+    if (track.arrangerMode == "Top" && !currentVoicing.sourceHarmonic.pitches.empty()) {
+        int maxP = currentVoicing.sourceHarmonic.pitches.back();
+        // Shift octave to match basePitch octave register
+        int targetOctave = basePitch / 12;
+        workingBase = (targetOctave * 12) + (maxP % 12);
+    } else if (track.arrangerMode == "Lowest" && !currentVoicing.sourceHarmonic.pitches.empty()) {
+        int minP = currentVoicing.sourceHarmonic.pitches.front();
+        int targetOctave = basePitch / 12;
+        workingBase = (targetOctave * 12) + (minP % 12);
+    } else if (track.arrangerMode == "Root") {
+        int rootPc = currentVoicing.sourceHarmonic.rootPitchClass;
+        int targetOctave = basePitch / 12;
+        workingBase = (targetOctave * 12) + rootPc;
+    } else if (track.arrangerMode == "Arp Up" || track.arrangerMode == "Arp Down") {
+        workingBase = computeArpPitch(inst, (track.arrangerMode == "Arp Up" ? Harmonic::StepActionType::ArpUp : Harmonic::StepActionType::ArpDown), workingBase);
+    }
+
+    // Now apply stepOffset relative to chord tones
+    int offset = stepDef.stepOffset;
+    int calculatedPitch = workingBase;
+
+    if (offset != 0 && !chordPcs.empty()) {
+        // Build ladder of chord pitches from workingBase - 24 to workingBase + 24
+        std::vector<int> pitchLadder;
+        int startOctave = (workingBase / 12) - 2;
+        for (int oct = startOctave; oct <= startOctave + 5; ++oct) {
+            for (int pc : chordPcs) {
+                pitchLadder.push_back(oct * 12 + pc);
+            }
+        }
+        std::sort(pitchLadder.begin(), pitchLadder.end());
+
+        // Find closest element in ladder to workingBase
+        auto it = std::lower_bound(pitchLadder.begin(), pitchLadder.end(), workingBase);
+        int idx = static_cast<int>(std::distance(pitchLadder.begin(), it));
+        if (idx >= (int)pitchLadder.size()) idx = (int)pitchLadder.size() - 1;
+
+        int targetIdx = std::clamp(idx + offset, 0, (int)pitchLadder.size() - 1);
+        calculatedPitch = pitchLadder[targetIdx];
+    }
+
+    // Add track octave and step octave
+    calculatedPitch += (track.octaveOffset * 12) + (stepDef.octaveOffset * 12);
+    return std::clamp(calculatedPitch, 12, 127);
 }
 
 int SequencerEngine::computeArpPitch(Harmonic::InstrumentId inst, Harmonic::StepActionType action, int basePitch) {
@@ -83,6 +228,8 @@ void SequencerEngine::processBlock(int numSamples,
     currentStep = step;
 
     if (isNewStep) {
+        std::lock_guard<std::mutex> lock(patternMutex);
+
         // Find assigned voices by instrument
         std::map<Harmonic::InstrumentId, Harmonic::VoiceAssignment> voiceMap;
         for (const auto& v : currentVoicing.voices) {
@@ -93,11 +240,41 @@ void SequencerEngine::processBlock(int numSamples,
         double stepDurationSeconds = stepDivision * secondsPerBeat;
         int stepDurationSamples = static_cast<int>(stepDurationSeconds * sampleRate);
 
+        // Check if any track is soloed
+        bool anySolo = false;
+        for (const auto& [inst, track] : activePattern.tracks) {
+            if (track.isSolo) { anySolo = true; break; }
+        }
+
         for (const auto& [inst, track] : activePattern.tracks) {
             if (track.steps.empty()) continue;
+
+            // Mute / Solo check
+            if (anySolo) {
+                if (!track.isSolo) continue;
+            } else if (track.isMuted) {
+                continue;
+            }
+
             const auto& stepDef = track.steps[step % track.steps.size()];
 
-            if (stepDef.action == Harmonic::StepActionType::Rest) {
+            if (voiceMap.find(inst) == voiceMap.end()) continue;
+            const auto& voice = voiceMap[inst];
+
+            // Send CC1 dynamics automation if configured
+            if (!track.cc1Curve.empty()) {
+                int cc1Val = track.cc1Curve[step % track.cc1Curve.size()];
+                ScheduledMidiEvent cc;
+                cc.sampleOffset = 0;
+                cc.channel = voice.midiChannel;
+                cc.pitch = 1; // CC1 (Modulation)
+                cc.velocity = std::clamp(cc1Val, 0, 127);
+                cc.isNoteOn = false;
+                cc.isController = true;
+                outEvents.push_back(cc);
+            }
+
+            if (!stepDef.active || stepDef.action == Harmonic::StepActionType::Rest) {
                 // Terminate any active note for this instrument
                 if (activeNotes[inst].active) {
                     ScheduledMidiEvent off;
@@ -112,16 +289,12 @@ void SequencerEngine::processBlock(int numSamples,
                 continue;
             }
 
-            if (voiceMap.find(inst) == voiceMap.end()) continue;
-            const auto& voice = voiceMap[inst];
-
-            int targetPitch = voice.midiPitch + (stepDef.octaveOffset * 12);
-            if (stepDef.action == Harmonic::StepActionType::ArpUp || stepDef.action == Harmonic::StepActionType::ArpDown) {
-                targetPitch = computeArpPitch(inst, stepDef.action, targetPitch);
-            }
-            targetPitch = std::clamp(targetPitch, 12, 120);
-
+            int targetPitch = computeRelativeStepPitch(inst, track, stepDef, voice.midiPitch);
             int gateSamples = static_cast<int>(stepDurationSamples * std::clamp(stepDef.gate, 0.1, 1.0));
+
+            // Apply track volume scaling to velocity
+            int scaledVel = static_cast<int>(stepDef.velocity * track.volume);
+            scaledVel = std::clamp(scaledVel, 1, 127);
 
             // Stop prior sounding note if still active
             if (activeNotes[inst].active) {
@@ -139,8 +312,9 @@ void SequencerEngine::processBlock(int numSamples,
             on.sampleOffset = 0;
             on.channel = voice.midiChannel;
             on.pitch = targetPitch;
-            on.velocity = std::clamp(stepDef.velocity, 1, 127);
+            on.velocity = scaledVel;
             on.isNoteOn = true;
+            on.isController = false;
             on.articulation = stepDef.articulation;
             outEvents.push_back(on);
 

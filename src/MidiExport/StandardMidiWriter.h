@@ -36,6 +36,7 @@ private:
                              Harmonic::InstrumentId inst,
                              const Sequencer::TrackPattern& trackPattern,
                              const Harmonic::VoiceAssignment& voice,
+                             const Harmonic::HarmonicFrame& harmonic,
                              int numBars);
 };
 

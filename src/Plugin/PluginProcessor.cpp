@@ -1,7 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-HollywoodOrchestratorAudioProcessor::HollywoodOrchestratorAudioProcessor()
+AutomaticOrchestratorAudioProcessor::AutomaticOrchestratorAudioProcessor()
     : AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true))
 {
     activeLibrary = Articulation::createCSSProfile(); // Default to Cinematic Studio Series
@@ -21,56 +21,63 @@ HollywoodOrchestratorAudioProcessor::HollywoodOrchestratorAudioProcessor()
         std::vector<int> pitches;
         for (const auto& n : notes) pitches.push_back(n.pitch);
 
+        // Ground truth chord recognition from played keys
         auto detected = chordDetector.detectChord(pitches);
-        auto modal = scaleQuantizer.transformToMode(detected, currentScaleMode.load());
-        auto rawVoicing = voicingEngine.generateVoicing(modal, currentVoicingStyle.load());
-        auto finalVoicing = randomizer.processVoicing(rawVoicing, modal);
+
+        Harmonic::HarmonicFrame activeFrame = detected;
+        if (modalSnappingEnabled.load()) {
+            activeFrame = scaleQuantizer.transformToMode(detected, currentScaleMode.load());
+        }
+
+        auto rawVoicing = voicingEngine.generateVoicing(activeFrame, currentVoicingStyle.load());
+        auto finalVoicing = randomizer.processVoicing(rawVoicing, activeFrame);
 
         {
             std::lock_guard<std::mutex> lock(stateMutex);
-            lastFrame = modal;
+            lastFrame = activeFrame;
             lastVoicing = finalVoicing;
-            lastChordName = modal.chordName;
+            // The display ALWAYS reflects the user's detected chord (e.g. Cmaj7)
+            lastChordName = detected.chordName;
         }
 
         sequencerEngine.updateVoicing(finalVoicing);
     });
 }
 
-HollywoodOrchestratorAudioProcessor::~HollywoodOrchestratorAudioProcessor() {}
+AutomaticOrchestratorAudioProcessor::~AutomaticOrchestratorAudioProcessor() {}
 
-const juce::String HollywoodOrchestratorAudioProcessor::getName() const {
-    return "Hollywood Orchestrator";
+const juce::String AutomaticOrchestratorAudioProcessor::getName() const {
+    return "Automatic Orchestrator";
 }
 
-bool HollywoodOrchestratorAudioProcessor::acceptsMidi() const { return true; }
-bool HollywoodOrchestratorAudioProcessor::producesMidi() const { return true; }
-bool HollywoodOrchestratorAudioProcessor::isMidiEffect() const { return false; }
-double HollywoodOrchestratorAudioProcessor::getTailLengthSeconds() const { return 0.0; }
+bool AutomaticOrchestratorAudioProcessor::acceptsMidi() const { return true; }
+bool AutomaticOrchestratorAudioProcessor::producesMidi() const { return true; }
+bool AutomaticOrchestratorAudioProcessor::isMidiEffect() const { return false; }
+double AutomaticOrchestratorAudioProcessor::getTailLengthSeconds() const { return 0.0; }
 
-int HollywoodOrchestratorAudioProcessor::getNumPrograms() { return 1; }
-int HollywoodOrchestratorAudioProcessor::getCurrentProgram() { return 0; }
-void HollywoodOrchestratorAudioProcessor::setCurrentProgram(int) {}
-const juce::String HollywoodOrchestratorAudioProcessor::getProgramName(int) { return {}; }
-void HollywoodOrchestratorAudioProcessor::changeProgramName(int, const juce::String&) {}
+int AutomaticOrchestratorAudioProcessor::getNumPrograms() { return 1; }
+int AutomaticOrchestratorAudioProcessor::getCurrentProgram() { return 0; }
+void AutomaticOrchestratorAudioProcessor::setCurrentProgram(int) {}
+const juce::String AutomaticOrchestratorAudioProcessor::getProgramName(int) { return {}; }
+void AutomaticOrchestratorAudioProcessor::changeProgramName(int, const juce::String&) {}
 
-void HollywoodOrchestratorAudioProcessor::prepareToPlay(double sampleRate, int) {
+void AutomaticOrchestratorAudioProcessor::prepareToPlay(double sampleRate, int) {
     currentSampleRate = sampleRate;
     graceWindow.reset();
     voicingEngine.resetHistory();
 }
 
-void HollywoodOrchestratorAudioProcessor::releaseResources() {
+void AutomaticOrchestratorAudioProcessor::releaseResources() {
     graceWindow.reset();
 }
 
-bool HollywoodOrchestratorAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
+bool AutomaticOrchestratorAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
     return layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo()
         || layouts.getMainOutputChannelSet() == juce::AudioChannelSet::disabled();
 }
 
-void HollywoodOrchestratorAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages) {
-    buffer.clear(); // We are a MIDI generating instrument; audio remains clean/silent
+void AutomaticOrchestratorAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages) {
+    buffer.clear(); // Pure MIDI Generator; audio buffers remain clean
 
     // Ingest incoming MIDI notes and CCs into GraceWindow
     for (const auto metadata : midiMessages) {
@@ -98,78 +105,99 @@ void HollywoodOrchestratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
     if (auto* playHead = getPlayHead()) {
         auto posOpt = playHead->getPosition();
         if (posOpt.hasValue()) {
-            if (posOpt->getBpm().hasValue()) bpm = *posOpt->getBpm();
-            if (posOpt->getPpqPosition().hasValue()) hostPpq = *posOpt->getPpqPosition();
             isPlaying = posOpt->getIsPlaying();
+            if (posOpt->getBpm().hasValue()) {
+                bpm = *(posOpt->getBpm());
+                sequencerEngine.setTempo(bpm);
+            }
+            if (posOpt->getPpqPosition().hasValue()) {
+                hostPpq = *(posOpt->getPpqPosition());
+            }
         }
     }
-    sequencerEngine.setTempo(bpm);
 
-    // Render scheduled MIDI events for current audio block
+    // Clear incoming buffer and populate with generated orchestral MIDI events
+    midiMessages.clear();
     scheduledBuffer.clear();
+
     sequencerEngine.processBlock(buffer.getNumSamples(), currentSampleRate, hostPpq, isPlaying, scheduledBuffer);
 
-    // Clear incoming buffer and populate with our 16-channel orchestrated output
-    midiMessages.clear();
+    for (const auto& evt : scheduledBuffer) {
+        int samplePos = std::clamp(evt.sampleOffset, 0, buffer.getNumSamples() - 1);
 
-    for (const auto& ev : scheduledBuffer) {
-        int ch = std::clamp(ev.channel, 1, 16);
-        int sampleOffset = std::clamp(ev.sampleOffset, 0, buffer.getNumSamples() - 1);
+        if (evt.isController) {
+            // CC Event (e.g. CC1 Dynamics automation)
+            midiMessages.addEvent(juce::MidiMessage::controllerEvent(evt.channel, evt.pitch, (juce::uint8)evt.velocity), samplePos);
+        } else if (evt.isNoteOn) {
+            // Inject Articulation Switch (CC58 / UACC / Keyswitch)
+            for (const auto& [instId, instProf] : activeLibrary.instruments) {
+                auto trig = instProf.getTrigger(evt.articulation);
+                if (trig.method == Articulation::TriggerMethod::ContinuousController) {
+                    midiMessages.addEvent(juce::MidiMessage::controllerEvent(evt.channel, trig.param1, (juce::uint8)trig.param2), samplePos);
+                    break;
+                } else if (trig.method == Articulation::TriggerMethod::Keyswitch) {
+                    midiMessages.addEvent(juce::MidiMessage::noteOn(evt.channel, trig.param1, (juce::uint8)100), samplePos);
+                    midiMessages.addEvent(juce::MidiMessage::noteOff(evt.channel, trig.param1, (juce::uint8)0), samplePos);
+                    break;
+                }
+            }
 
-        if (ev.isNoteOn) {
-            // Check articulation trigger for keyswitch or CC
-            // For example: if instrument profile defines a CC, emit it just before NoteOn
-            midiMessages.addEvent(juce::MidiMessage::noteOn(ch, ev.pitch, static_cast<juce::uint8>(ev.velocity)), sampleOffset);
+            // Note On
+            midiMessages.addEvent(juce::MidiMessage::noteOn(evt.channel, evt.pitch, (juce::uint8)evt.velocity), samplePos);
         } else {
-            midiMessages.addEvent(juce::MidiMessage::noteOff(ch, ev.pitch), sampleOffset);
+            // Note Off
+            midiMessages.addEvent(juce::MidiMessage::noteOff(evt.channel, evt.pitch, (juce::uint8)0), samplePos);
         }
     }
 }
 
-bool HollywoodOrchestratorAudioProcessor::hasEditor() const { return true; }
-juce::AudioProcessorEditor* HollywoodOrchestratorAudioProcessor::createEditor() {
+juce::AudioProcessorEditor* AutomaticOrchestratorAudioProcessor::createEditor() {
     return new HollywoodOrchestratorEditor(*this);
 }
 
-void HollywoodOrchestratorAudioProcessor::getStateInformation(juce::MemoryBlock&) {}
-void HollywoodOrchestratorAudioProcessor::setStateInformation(const void*, int) {}
+bool AutomaticOrchestratorAudioProcessor::hasEditor() const {
+    return true;
+}
 
-void HollywoodOrchestratorAudioProcessor::setScaleMode(Harmonic::ScaleMode mode) {
+void AutomaticOrchestratorAudioProcessor::getStateInformation(juce::MemoryBlock&) {}
+void AutomaticOrchestratorAudioProcessor::setStateInformation(const void*, int) {}
+
+void AutomaticOrchestratorAudioProcessor::setScaleMode(Harmonic::ScaleMode mode) {
     currentScaleMode.store(mode);
 }
 
-void HollywoodOrchestratorAudioProcessor::setVoicingStyle(Orchestration::VoicingStyle style) {
+void AutomaticOrchestratorAudioProcessor::setVoicingStyle(Orchestration::VoicingStyle style) {
     currentVoicingStyle.store(style);
 }
 
-void HollywoodOrchestratorAudioProcessor::setLibraryProfile(const Articulation::LibraryProfile& profile) {
+void AutomaticOrchestratorAudioProcessor::setLibraryProfile(const Articulation::LibraryProfile& profile) {
     activeLibrary = profile;
 }
 
-void HollywoodOrchestratorAudioProcessor::setStylePattern(const Sequencer::OrchestralPattern& pattern) {
+void AutomaticOrchestratorAudioProcessor::setStylePattern(const Sequencer::OrchestralPattern& pattern) {
     sequencerEngine.setPattern(pattern);
 }
 
-const Sequencer::OrchestralPattern& HollywoodOrchestratorAudioProcessor::getCurrentPattern() const {
+const Sequencer::OrchestralPattern AutomaticOrchestratorAudioProcessor::getCurrentPattern() const {
     return sequencerEngine.getPattern();
 }
 
-std::string HollywoodOrchestratorAudioProcessor::getCurrentChordName() const {
+std::string AutomaticOrchestratorAudioProcessor::getCurrentChordName() const {
     std::lock_guard<std::mutex> lock(stateMutex);
     return lastChordName;
 }
 
-Harmonic::HarmonicFrame HollywoodOrchestratorAudioProcessor::getCurrentHarmonicFrame() const {
+Harmonic::HarmonicFrame AutomaticOrchestratorAudioProcessor::getCurrentHarmonicFrame() const {
     std::lock_guard<std::mutex> lock(stateMutex);
     return lastFrame;
 }
 
-Harmonic::OrchestralVoicing HollywoodOrchestratorAudioProcessor::getCurrentVoicing() const {
+Harmonic::OrchestralVoicing AutomaticOrchestratorAudioProcessor::getCurrentVoicing() const {
     std::lock_guard<std::mutex> lock(stateMutex);
     return lastVoicing;
 }
 
-std::string HollywoodOrchestratorAudioProcessor::exportMidiForDrag(int numBars,
+std::string AutomaticOrchestratorAudioProcessor::exportMidiForDrag(int numBars,
                                                                  std::optional<Harmonic::InstrumentId> singleStem) {
     Harmonic::OrchestralVoicing voicingCopy;
     {
@@ -177,9 +205,21 @@ std::string HollywoodOrchestratorAudioProcessor::exportMidiForDrag(int numBars,
         voicingCopy = lastVoicing;
     }
 
+    // Default Fallback: If no live MIDI chord has been played yet, generate a default C Major/Cmaj7 voicing!
+    if (voicingCopy.voices.empty()) {
+        Harmonic::HarmonicFrame defaultFrame;
+        defaultFrame.rootPitchClass = 0; // C
+        defaultFrame.bassMidiNote = 36;  // C2
+        defaultFrame.quality = Harmonic::ChordQuality::Major7;
+        defaultFrame.pitches = {36, 48, 52, 55, 59}; // C2, C3, E3, G3, B3
+        defaultFrame.chordTones = {0, 4, 7, 11};
+        defaultFrame.chordName = "Cmaj7";
+        voicingCopy = voicingEngine.generateVoicing(defaultFrame, currentVoicingStyle.load());
+    }
+
     std::string filename = singleStem.has_value()
-        ? "/tmp/HollywoodOrch_" + Harmonic::instrumentToString(*singleStem) + ".mid"
-        : "/tmp/HollywoodOrch_Master.mid";
+        ? "/tmp/AutomaticOrchestrator_" + Harmonic::instrumentToString(*singleStem) + ".mid"
+        : "/tmp/AutomaticOrchestrator_Master.mid";
 
     // Clean whitespace from filename
     std::replace(filename.begin(), filename.end(), ' ', '_');
@@ -195,5 +235,5 @@ std::string HollywoodOrchestratorAudioProcessor::exportMidiForDrag(int numBars,
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() {
-    return new HollywoodOrchestratorAudioProcessor();
+    return new AutomaticOrchestratorAudioProcessor();
 }

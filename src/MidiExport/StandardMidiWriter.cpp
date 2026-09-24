@@ -38,7 +38,7 @@ void writeBigEndian32(std::vector<uint8_t>& buffer, uint32_t value) {
 void StandardMidiWriter::buildConductorTrack(std::vector<uint8_t>& trackBytes, double bpm) {
     trackBytes.clear();
 
-    // Delta 0: Track Name "Tempo / Master"
+    // Delta 0: Track Name "Master Conductor"
     std::string trackName = "Master Conductor";
     writeVLQ(trackBytes, 0);
     trackBytes.push_back(0xFF);
@@ -77,11 +77,12 @@ void StandardMidiWriter::buildInstrumentTrack(std::vector<uint8_t>& trackBytes,
                                              Harmonic::InstrumentId inst,
                                              const Sequencer::TrackPattern& trackPattern,
                                              const Harmonic::VoiceAssignment& voice,
+                                             const Harmonic::HarmonicFrame& harmonic,
                                              int numBars) {
     trackBytes.clear();
 
     // Delta 0: Track Name
-    std::string trackName = Harmonic::instrumentToString(inst);
+    std::string trackName = trackPattern.trackName.empty() ? Harmonic::instrumentToString(inst) : trackPattern.trackName;
     writeVLQ(trackBytes, 0);
     trackBytes.push_back(0xFF);
     trackBytes.push_back(0x03);
@@ -96,27 +97,73 @@ void StandardMidiWriter::buildInstrumentTrack(std::vector<uint8_t>& trackBytes,
         uint8_t status;
         uint8_t data1;
         uint8_t data2;
-        int priority; // NoteOff before NoteOn at identical tick
+        int priority; // NoteOff (1) before CC (2) before NoteOn (3) at identical tick
     };
     std::vector<MidiTickEvent> timeline;
 
     uint32_t ticksPerStep = ticksPerQuarter / 4; // 1/16th note = 120 ticks
     uint32_t totalSteps = numBars * 16;
 
+    // Collect chord pitch classes
+    std::vector<int> chordPcs;
+    for (int p : harmonic.pitches) {
+        chordPcs.push_back((p % 12 + 12) % 12);
+    }
+    if (chordPcs.empty()) chordPcs = {0, 4, 7};
+    std::sort(chordPcs.begin(), chordPcs.end());
+    chordPcs.erase(std::unique(chordPcs.begin(), chordPcs.end()), chordPcs.end());
+
     for (uint32_t s = 0; s < totalSteps; ++s) {
         if (trackPattern.steps.empty()) break;
         const auto& step = trackPattern.steps[s % trackPattern.steps.size()];
-        if (step.action == Harmonic::StepActionType::Rest) continue;
-
         uint32_t stepStartTick = s * ticksPerStep;
+
+        // Export CC1 dynamics event if present
+        if (!trackPattern.cc1Curve.empty()) {
+            uint8_t ccVal = static_cast<uint8_t>(std::clamp(trackPattern.cc1Curve[s % trackPattern.cc1Curve.size()], 0, 127));
+            timeline.push_back({stepStartTick, static_cast<uint8_t>(0xB0 | ch), 1, ccVal, 2});
+        }
+
+        if (!step.active || step.action == Harmonic::StepActionType::Rest) continue;
+
         uint32_t gateTicks = static_cast<uint32_t>(ticksPerStep * std::clamp(step.gate, 0.1, 1.0));
         uint32_t stepEndTick = stepStartTick + gateTicks;
 
-        uint8_t pitch = static_cast<uint8_t>(std::clamp(voice.midiPitch + (step.octaveOffset * 12), 12, 127));
-        uint8_t vel = static_cast<uint8_t>(std::clamp(step.velocity, 1, 127));
+        // Calculate pitch based on arrangerMode and stepOffset
+        int workingBase = voice.midiPitch;
+        if (trackPattern.arrangerMode == "Top" && !harmonic.pitches.empty()) {
+            int maxP = harmonic.pitches.back();
+            workingBase = (voice.midiPitch / 12) * 12 + (maxP % 12);
+        } else if (trackPattern.arrangerMode == "Lowest" && !harmonic.pitches.empty()) {
+            int minP = harmonic.pitches.front();
+            workingBase = (voice.midiPitch / 12) * 12 + (minP % 12);
+        } else if (trackPattern.arrangerMode == "Root") {
+            workingBase = (voice.midiPitch / 12) * 12 + harmonic.rootPitchClass;
+        }
+
+        int calculatedPitch = workingBase;
+        if (step.stepOffset != 0 && !chordPcs.empty()) {
+            std::vector<int> pitchLadder;
+            int startOctave = (workingBase / 12) - 2;
+            for (int oct = startOctave; oct <= startOctave + 5; ++oct) {
+                for (int pc : chordPcs) {
+                    pitchLadder.push_back(oct * 12 + pc);
+                }
+            }
+            std::sort(pitchLadder.begin(), pitchLadder.end());
+            auto it = std::lower_bound(pitchLadder.begin(), pitchLadder.end(), workingBase);
+            int idx = static_cast<int>(std::distance(pitchLadder.begin(), it));
+            if (idx >= (int)pitchLadder.size()) idx = (int)pitchLadder.size() - 1;
+            int targetIdx = std::clamp(idx + step.stepOffset, 0, (int)pitchLadder.size() - 1);
+            calculatedPitch = pitchLadder[targetIdx];
+        }
+
+        calculatedPitch += (trackPattern.octaveOffset * 12) + (step.octaveOffset * 12);
+        uint8_t pitch = static_cast<uint8_t>(std::clamp(calculatedPitch, 12, 127));
+        uint8_t vel = static_cast<uint8_t>(std::clamp(static_cast<int>(step.velocity * trackPattern.volume), 1, 127));
 
         // NoteOn
-        timeline.push_back({stepStartTick, static_cast<uint8_t>(0x90 | ch), pitch, vel, 2});
+        timeline.push_back({stepStartTick, static_cast<uint8_t>(0x90 | ch), pitch, vel, 3});
         // NoteOff
         timeline.push_back({stepEndTick, static_cast<uint8_t>(0x80 | ch), pitch, 0, 1});
     }
@@ -166,7 +213,7 @@ bool StandardMidiWriter::exportMidiFile(const Sequencer::OrchestralPattern& patt
         for (const auto& [inst, trackPattern] : pattern.tracks) {
             if (voiceMap.find(inst) != voiceMap.end()) {
                 std::vector<uint8_t> instTrack;
-                buildInstrumentTrack(instTrack, inst, trackPattern, voiceMap[inst], numBars);
+                buildInstrumentTrack(instTrack, inst, trackPattern, voiceMap[inst], voicing.sourceHarmonic, numBars);
                 allTracks.push_back(instTrack);
             }
         }
@@ -179,7 +226,7 @@ bool StandardMidiWriter::exportMidiFile(const Sequencer::OrchestralPattern& patt
             allTracks.push_back(conductorTrack);
 
             std::vector<uint8_t> instTrack;
-            buildInstrumentTrack(instTrack, stemId, pattern.tracks.at(stemId), voiceMap[stemId], numBars);
+            buildInstrumentTrack(instTrack, stemId, pattern.tracks.at(stemId), voiceMap[stemId], voicing.sourceHarmonic, numBars);
             allTracks.push_back(instTrack);
         }
     }

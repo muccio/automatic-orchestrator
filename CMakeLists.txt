@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(HollywoodOrchestrator VERSION 1.0.0 LANGUAGES CXX C)
+project(AutomaticOrchestrator VERSION 2.0.0 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -65,8 +65,8 @@ if(EXISTS "${JUCE_DIR}/CMakeLists.txt")
     message(STATUS "Found local JUCE at: ${JUCE_DIR}")
     add_subdirectory("${JUCE_DIR}" "${CMAKE_BINARY_DIR}/JUCE" EXCLUDE_FROM_ALL)
 
-    juce_add_plugin(HollywoodOrchestrator
-        PLUGIN_NAME "Hollywood Orchestrator"
+    juce_add_plugin(AutomaticOrchestrator
+        PLUGIN_NAME "Automatic Orchestrator"
         COMPANY_NAME "OrchestratorLab"
         IS_SYNTH TRUE
         NEEDS_MIDI_INPUT TRUE
@@ -74,23 +74,23 @@ if(EXISTS "${JUCE_DIR}/CMakeLists.txt")
         IS_MIDI_EFFECT FALSE
         EDITOR_WANTS_KEYBOARD_FOCUS TRUE
         FORMATS VST3 AU Standalone
-        PRODUCT_NAME "Hollywood Orchestrator"
+        PRODUCT_NAME "Automatic Orchestrator"
     )
 
-    target_sources(HollywoodOrchestrator PRIVATE
+    target_sources(AutomaticOrchestrator PRIVATE
         src/Plugin/PluginProcessor.cpp
         src/Plugin/PluginEditor.cpp
     )
 
-    target_include_directories(HollywoodOrchestrator PRIVATE
+    target_include_directories(AutomaticOrchestrator PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
 
-    target_compile_definitions(HollywoodOrchestrator PRIVATE
+    target_compile_definitions(AutomaticOrchestrator PRIVATE
         JUCE_VST3_CAN_REPLACE_VST2=0
     )
 
-    target_link_libraries(HollywoodOrchestrator PRIVATE
+    target_link_libraries(AutomaticOrchestrator PRIVATE
         orchestrator_core
         juce::juce_audio_utils
         juce::juce_audio_processors
@@ -100,7 +100,7 @@ if(EXISTS "${JUCE_DIR}/CMakeLists.txt")
         juce::juce_recommended_warning_flags
     )
 
-    juce_generate_juce_header(HollywoodOrchestrator)
+    juce_generate_juce_header(AutomaticOrchestrator)
 else()
     message(WARNING "JUCE not found at ${JUCE_DIR}. Plugin targets will be skipped, building core and test suite.")
 endif()
