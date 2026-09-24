@@ -4,7 +4,7 @@
 namespace Harmonic {
 
 static const char* sharpNoteNames[12] = {
-    "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
+    "C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"
 };
 
 static const char* flatNoteNames[12] = {
@@ -138,6 +138,35 @@ std::vector<int> getScaleModeIntervals(ScaleMode mode) {
             return {0, 1, 3, 4, 6, 7, 9, 10};
         default:
             return {0, 2, 4, 5, 7, 9, 11};
+    }
+}
+std::ostream& operator<<(std::ostream& os, ChordQuality q) {
+    return os << chordQualityToString(q);
+}
+
+std::ostream& operator<<(std::ostream& os, ScaleMode m) {
+    return os << scaleModeToString(m);
+}
+
+std::ostream& operator<<(std::ostream& os, InstrumentId id) {
+    return os << instrumentToString(id);
+}
+
+std::ostream& operator<<(std::ostream& os, ArticulationType art) {
+    return os << articulationToString(art);
+}
+
+std::ostream& operator<<(std::ostream& os, StepActionType act) {
+    switch (act) {
+        case StepActionType::Rest: return os << "Rest";
+        case StepActionType::Sustain: return os << "Sustain";
+        case StepActionType::Ostinato: return os << "Ostinato";
+        case StepActionType::ArpUp: return os << "ArpUp";
+        case StepActionType::ArpDown: return os << "ArpDown";
+        case StepActionType::ArpUpDown: return os << "ArpUpDown";
+        case StepActionType::ArpRandom: return os << "ArpRandom";
+        case StepActionType::Runs: return os << "Runs";
+        default: return os << "Action";
     }
 }
 

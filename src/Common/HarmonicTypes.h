@@ -141,4 +141,10 @@ std::string instrumentToString(InstrumentId id);
 std::string articulationToString(ArticulationType art);
 std::vector<int> getScaleModeIntervals(ScaleMode mode);
 
+std::ostream& operator<<(std::ostream& os, ChordQuality q);
+std::ostream& operator<<(std::ostream& os, ScaleMode m);
+std::ostream& operator<<(std::ostream& os, InstrumentId id);
+std::ostream& operator<<(std::ostream& os, ArticulationType art);
+std::ostream& operator<<(std::ostream& os, StepActionType act);
+
 } // namespace Harmonic
