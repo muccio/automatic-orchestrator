@@ -171,17 +171,27 @@ void StandardMidiWriter::buildInstrumentTrack(std::vector<uint8_t>& trackBytes,
             pitchLadder.erase(std::unique(pitchLadder.begin(), pitchLadder.end()), pitchLadder.end());
         }
 
+        int effectiveBase = workingBase + (trackPattern.octaveOffset * 12);
+        int baseIdx = 0;
+        if (!pitchLadder.empty()) {
+            int minBaseDiff = 999;
+            for (int i = 0; i < (int)pitchLadder.size(); ++i) {
+                int diff = std::abs(pitchLadder[i] - effectiveBase);
+                if (diff < minBaseDiff) {
+                    minBaseDiff = diff;
+                    baseIdx = i;
+                }
+            }
+        }
+
         for (int offVal : allOffsets) {
-            int calculatedPitch = workingBase;
-            if (offVal != 0 && !pitchLadder.empty()) {
-                auto it = std::lower_bound(pitchLadder.begin(), pitchLadder.end(), workingBase);
-                int idx = static_cast<int>(std::distance(pitchLadder.begin(), it));
-                if (idx >= (int)pitchLadder.size()) idx = (int)pitchLadder.size() - 1;
-                int targetIdx = std::clamp(idx + offVal, 0, (int)pitchLadder.size() - 1);
+            int calculatedPitch = effectiveBase;
+            if (!pitchLadder.empty()) {
+                int targetIdx = std::clamp(baseIdx + offVal, 0, (int)pitchLadder.size() - 1);
                 calculatedPitch = pitchLadder[targetIdx];
             }
 
-            calculatedPitch += (trackPattern.octaveOffset * 12) + (step.octaveOffset * 12);
+            calculatedPitch += (step.octaveOffset * 12);
             uint8_t pitch = static_cast<uint8_t>(std::clamp(calculatedPitch, 12, 127));
             uint8_t vel = static_cast<uint8_t>(std::clamp(static_cast<int>(step.velocity * trackPattern.volume), 1, 127));
 

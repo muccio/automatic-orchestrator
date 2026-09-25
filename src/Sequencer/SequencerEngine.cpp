@@ -241,12 +241,11 @@ int SequencerEngine::computeRelativeStepPitch(Harmonic::InstrumentId inst,
         workingBase = computeArpPitch(inst, (track.arrangerMode == "Arp Up" ? Harmonic::StepActionType::ArpUp : Harmonic::StepActionType::ArpDown), workingBase);
     }
 
-    // Now apply stepOffset relative to chord tones
-    int offset = stepOffset;
-    int calculatedPitch = workingBase;
+    int effectiveBase = workingBase + (track.octaveOffset * 12);
 
-    if (offset != 0 && !chordPcs.empty()) {
-        // Build ladder of chord pitches covering full register
+    int calculatedPitch = effectiveBase;
+
+    if (!chordPcs.empty()) {
         std::vector<int> pitchLadder;
         for (int oct = 1; oct <= 9; ++oct) {
             for (int pc : chordPcs) {
@@ -259,17 +258,21 @@ int SequencerEngine::computeRelativeStepPitch(Harmonic::InstrumentId inst,
         std::sort(pitchLadder.begin(), pitchLadder.end());
         pitchLadder.erase(std::unique(pitchLadder.begin(), pitchLadder.end()), pitchLadder.end());
 
-        // Find closest element in ladder to workingBase
-        auto it = std::lower_bound(pitchLadder.begin(), pitchLadder.end(), workingBase);
-        int idx = static_cast<int>(std::distance(pitchLadder.begin(), it));
-        if (idx >= (int)pitchLadder.size()) idx = (int)pitchLadder.size() - 1;
+        int baseIdx = 0;
+        int minBaseDiff = 999;
+        for (int i = 0; i < (int)pitchLadder.size(); ++i) {
+            int diff = std::abs(pitchLadder[i] - effectiveBase);
+            if (diff < minBaseDiff) {
+                minBaseDiff = diff;
+                baseIdx = i;
+            }
+        }
 
-        int targetIdx = std::clamp(idx + offset, 0, (int)pitchLadder.size() - 1);
+        int targetIdx = std::clamp(baseIdx + stepOffset, 0, (int)pitchLadder.size() - 1);
         calculatedPitch = pitchLadder[targetIdx];
     }
 
-    // Add track octave and step octave
-    calculatedPitch += (track.octaveOffset * 12) + (stepOctave * 12);
+    calculatedPitch += (stepOctave * 12);
     return std::clamp(calculatedPitch, 12, 127);
 }
 

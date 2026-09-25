@@ -151,6 +151,38 @@ std::vector<int> getScaleModeIntervals(ScaleMode mode) {
     }
 }
 
+std::vector<int> getChordQualityIntervals(ChordQuality q) {
+    switch (q) {
+        case ChordQuality::SingleNote: return {0};
+        case ChordQuality::PowerChord: return {0, 7};
+        case ChordQuality::MajorTriad: return {0, 4, 7};
+        case ChordQuality::MinorTriad: return {0, 3, 7};
+        case ChordQuality::DiminishedTriad: return {0, 3, 6};
+        case ChordQuality::AugmentedTriad: return {0, 4, 8};
+        case ChordQuality::Sus2: return {0, 2, 7};
+        case ChordQuality::Sus4: return {0, 5, 7};
+        case ChordQuality::Dominant7: return {0, 4, 7, 10};
+        case ChordQuality::Major7: return {0, 4, 7, 11};
+        case ChordQuality::Minor7: return {0, 3, 7, 10};
+        case ChordQuality::Diminished7: return {0, 3, 6, 9};
+        case ChordQuality::HalfDiminished7: return {0, 3, 6, 10};
+        case ChordQuality::MinorMajor7: return {0, 3, 7, 11};
+        case ChordQuality::Augmented7: return {0, 4, 8, 10};
+        case ChordQuality::AugmentedMajor7: return {0, 4, 8, 11};
+        case ChordQuality::SevenSus4: return {0, 5, 7, 10};
+        case ChordQuality::Major6: return {0, 4, 7, 9};
+        case ChordQuality::Minor6: return {0, 3, 7, 9};
+        case ChordQuality::Dominant9: return {0, 4, 7, 10, 2};
+        case ChordQuality::Major9: return {0, 4, 7, 11, 2};
+        case ChordQuality::Minor9: return {0, 3, 7, 10, 2};
+        case ChordQuality::Add9: return {0, 4, 7, 2};
+        case ChordQuality::Eleventh: return {0, 4, 7, 10, 2, 5};
+        case ChordQuality::Sharp11: return {0, 4, 7, 11, 6};
+        case ChordQuality::Thirteenth: return {0, 4, 7, 10, 2, 9};
+        default: return {0, 4, 7};
+    }
+}
+
 OrchestralSection getInstrumentSection(InstrumentId id) {
     switch (id) {
         case InstrumentId::Violins1:

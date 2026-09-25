@@ -165,6 +165,7 @@ std::string scaleModeToString(ScaleMode m);
 std::string instrumentToString(InstrumentId id);
 std::string articulationToString(ArticulationType art);
 std::vector<int> getScaleModeIntervals(ScaleMode mode);
+std::vector<int> getChordQualityIntervals(ChordQuality q);
 OrchestralSection getInstrumentSection(InstrumentId id);
 int getDefaultInstrumentChannel(InstrumentId id);
 

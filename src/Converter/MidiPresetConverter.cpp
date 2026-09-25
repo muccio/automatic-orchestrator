@@ -463,6 +463,12 @@ TonalAnalysisResult MidiPresetConverter::analyzeTonalCenter(const ParsedMidiFile
     for (int interval : result.detectedChordTones) {
         result.detectedHarmonicPcs.push_back((result.detectedRootPitchClass + interval) % 12);
     }
+    // Include pitch classes with active distribution in the piece (>= 0.04 weight)
+    for (int pc = 0; pc < 12; ++pc) {
+        if (result.pitchClassDistribution[pc] >= 0.04f) {
+            result.detectedHarmonicPcs.push_back(pc);
+        }
+    }
     std::sort(result.detectedHarmonicPcs.begin(), result.detectedHarmonicPcs.end());
     result.detectedHarmonicPcs.erase(std::unique(result.detectedHarmonicPcs.begin(), result.detectedHarmonicPcs.end()), result.detectedHarmonicPcs.end());
 
@@ -937,7 +943,25 @@ Sequencer::OrchestralPattern MidiPresetConverter::convertToPattern(const ParsedM
             }
         }
 
-        pattern.tracks[config.instrument] = trackPattern;
+        if (pattern.tracks.find(config.instrument) != pattern.tracks.end()) {
+            auto& existing = pattern.tracks[config.instrument];
+            for (int s = 0; s < numSteps; ++s) {
+                if (trackPattern.steps[s].active) {
+                    if (!existing.steps[s].active) {
+                        existing.steps[s] = trackPattern.steps[s];
+                    } else {
+                        existing.steps[s].extraOffsets.push_back(trackPattern.steps[s].stepOffset);
+                        for (int eo : trackPattern.steps[s].extraOffsets) {
+                            existing.steps[s].extraOffsets.push_back(eo);
+                        }
+                        existing.steps[s].velocity = std::max(existing.steps[s].velocity, trackPattern.steps[s].velocity);
+                        existing.steps[s].lengthSteps = std::max(existing.steps[s].lengthSteps, trackPattern.steps[s].lengthSteps);
+                    }
+                }
+            }
+        } else {
+            pattern.tracks[config.instrument] = trackPattern;
+        }
     }
 
     // Divisi / Polyphonic section distribution:

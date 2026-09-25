@@ -132,6 +132,10 @@ if(EXISTS "${JUCE_DIR}/CMakeLists.txt")
     target_link_libraries(AutomaticOrchestratorConverter PRIVATE
         orchestrator_core
         juce::juce_gui_extra
+        juce::juce_audio_utils
+        juce::juce_audio_devices
+        juce::juce_audio_basics
+        juce::juce_audio_formats
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags
