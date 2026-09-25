@@ -52,6 +52,34 @@ inline Tessitura getInstrumentTessitura(Harmonic::InstrumentId id) {
             return {36, 55, 36, 53, 2}; // C2 - G3
         case InstrumentId::OrchestralPerc:
             return {36, 84, 48, 72, 3};
+        case InstrumentId::Celesta:
+            return {48, 96, 60, 96, 5}; // C3 - C7
+
+        // Keyboards & Harp
+        case InstrumentId::Harp:
+            return {24, 103, 36, 96, 4}; // C1 - G7
+        case InstrumentId::Piano:
+            return {21, 108, 36, 84, 4}; // A0 - C8
+        case InstrumentId::ChurchOrgan:
+            return {24, 96, 36, 84, 3};  // C1 - C7
+
+        // Guitars & Bass
+        case InstrumentId::AcousticGuitar:
+            return {40, 83, 45, 76, 3};  // E2 - B5
+        case InstrumentId::ElectricGuitar:
+            return {40, 88, 45, 81, 3};  // E2 - E6
+        case InstrumentId::BassGuitar:
+            return {28, 55, 28, 48, 2};  // E1 - G3
+
+        // Choir
+        case InstrumentId::ChoirFull:
+            return {36, 84, 48, 77, 4};  // C2 - C6
+
+        // Synths
+        case InstrumentId::SynthesizerLead:
+            return {36, 96, 60, 88, 4};
+        case InstrumentId::SynthesizerPad:
+            return {36, 96, 48, 72, 3};
 
         default:
             return {48, 72, 48, 72, 4};
@@ -59,28 +87,7 @@ inline Tessitura getInstrumentTessitura(Harmonic::InstrumentId id) {
 }
 
 inline int getInstrumentDefaultMidiChannel(Harmonic::InstrumentId id) {
-    using namespace Harmonic;
-    switch (id) {
-        case InstrumentId::Violins1: return 1;
-        case InstrumentId::Violins2: return 2;
-        case InstrumentId::Violas:   return 3;
-        case InstrumentId::Cellos:   return 4;
-        case InstrumentId::DoubleBasses: return 5;
-
-        case InstrumentId::Trumpets: return 6;
-        case InstrumentId::FrenchHorns: return 7;
-        case InstrumentId::Trombones: return 8;
-        case InstrumentId::Tuba:     return 9;
-
-        case InstrumentId::Flutes:   return 10;
-        case InstrumentId::Oboes:    return 11;
-        case InstrumentId::Clarinets: return 12;
-        case InstrumentId::Bassoons: return 13;
-
-        case InstrumentId::Timpani:  return 14;
-        case InstrumentId::OrchestralPerc: return 15;
-        default: return 1;
-    }
+    return Harmonic::getDefaultInstrumentChannel(id);
 }
 
 } // namespace Orchestration

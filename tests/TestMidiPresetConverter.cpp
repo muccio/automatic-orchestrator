@@ -315,4 +315,169 @@ TEST_CASE(MidiPresetConverter, SequencerEnginePlaysPolyphonicPreset) {
     ASSERT_EQ(pitchesSounded[1], 64); // E4
 }
 
+TEST_CASE(MidiPresetConverter, InspectTestConvertMid) {
+    Converter::MidiPresetConverter converter;
+    Converter::ParsedMidiFile parsed;
+    std::string err;
+    bool ok = converter.parseMidiFile("example/testConvert.mid", parsed, err);
+    std::cout << "\n=== InspectTestConvertMid ===" << std::endl;
+    std::cout << "Parse OK: " << ok << ", Err: " << err << std::endl;
+    if (ok) {
+        std::cout << "File: " << parsed.fileName << ", TicksPerQuarter: " << parsed.ticksPerQuarter
+                  << ", BPM: " << parsed.bpm << ", TimeSig: " << parsed.timeSigNum << "/" << parsed.timeSigDen
+                  << ", TotalTicks: " << parsed.totalTicks << std::endl;
+        int ticksPer16th = parsed.ticksPerQuarter / 4;
+        int total16ths = parsed.totalTicks / ticksPer16th;
+        std::cout << "Total 16th steps: " << total16ths << " (approx " << (total16ths / 16.0) << " bars)" << std::endl;
+
+        for (const auto& trk : parsed.tracks) {
+            std::cout << "Track " << trk.trackIndex << ": '" << trk.trackName << "' ch=" << trk.channel
+                      << " notes=" << trk.notes.size() << " suggested=" << Harmonic::instrumentToString(trk.suggestedInstrument)
+                      << " mode=" << trk.suggestedArrangerMode << std::endl;
+            for (const auto& n : trk.notes) {
+                std::cout << "   startTick=" << n.startTick << " (step " << (n.startTick / ticksPer16th)
+                          << " bar " << (n.startTick / (ticksPer16th * 16) + 1)
+                          << ") durTicks=" << n.durationTicks << " (durSteps " << (n.durationTicks / (double)ticksPer16th)
+                          << ") pitch=" << n.pitch << " vel=" << n.velocity << std::endl;
+            }
+        }
+
+        auto tonal = converter.analyzeTonalCenter(parsed);
+        std::cout << "Tonal: " << tonal.detectedChordName << ", root=" << tonal.detectedRootName
+                  << ", conf=" << tonal.confidence << std::endl;
+        std::cout << "Harmonic PCs: ";
+        for (int pc : tonal.detectedHarmonicPcs) std::cout << pc << " ";
+        std::cout << std::endl;
+    }
+}
+
+TEST_CASE(MidiPresetConverter, TestConvertMidSimilarityRoundtrip) {
+    Converter::MidiPresetConverter converter;
+    Converter::ParsedMidiFile origMidi;
+    std::string err;
+    bool ok = converter.parseMidiFile("example/testConvert.mid", origMidi, err);
+    ASSERT_TRUE(ok);
+
+    auto tonal = converter.analyzeTonalCenter(origMidi);
+
+    // Auto-detect number of 16th steps in the file
+    int ticksPer16th = origMidi.ticksPerQuarter / 4;
+    int detectedSteps = static_cast<int>(std::ceil(static_cast<double>(origMidi.totalTicks) / ticksPer16th));
+    // Round up to multiple of 16 (full bars)
+    int barCount = std::max(1, (detectedSteps + 15) / 16);
+    int totalSteps = barCount * 16;
+    std::cout << "Detected totalSteps: " << totalSteps << " (" << barCount << " bars)" << std::endl;
+
+    Converter::ConversionOptions options;
+    options.presetName = "testConvert_Roundtrip";
+    options.lengthSteps = totalSteps;
+
+    auto pattern = converter.convertToPattern(origMidi, tonal, options);
+    std::cout << "Pattern tracks count: " << pattern.tracks.size() << std::endl;
+    for (const auto& [inst, trk] : pattern.tracks) {
+        int activeCount = 0;
+        for (const auto& stp : trk.steps) if (stp.active) ++activeCount;
+        std::cout << "  Track inst=" << Harmonic::instrumentToString(inst)
+                  << " name='" << trk.trackName << "' activeSteps=" << activeCount << "/" << trk.steps.size() << std::endl;
+    }
+
+    // Build the identical harmonic frame detected
+    Harmonic::HarmonicFrame frame;
+    frame.rootPitchClass = tonal.detectedRootPitchClass;
+    frame.bassMidiNote = tonal.referenceBassMidiNote;
+    frame.quality = tonal.detectedChordQuality;
+    frame.chordName = tonal.detectedChordName;
+    frame.chordTones = tonal.detectedChordTones;
+    frame.activeMode = tonal.detectedMode;
+
+    for (int oct = 1; oct <= 8; ++oct) {
+        for (int interval : tonal.detectedChordTones) {
+            frame.pitches.push_back(oct * 12 + ((tonal.detectedRootPitchClass + interval) % 12));
+        }
+    }
+    std::sort(frame.pitches.begin(), frame.pitches.end());
+    frame.pitches.erase(std::unique(frame.pitches.begin(), frame.pitches.end()), frame.pitches.end());
+
+    Orchestration::VoicingEngine ve;
+    auto voicing = ve.generateVoicing(frame);
+
+    // Export regenerated MIDI using StandardMidiWriter
+    MidiExport::StandardMidiWriter writer;
+    std::string regenMidiPath = "/tmp/testConvert_regenerated.mid";
+    bool exportOk = writer.exportMidiFile(pattern, voicing, origMidi.bpm, barCount, regenMidiPath);
+    ASSERT_TRUE(exportOk);
+
+    // Parse regenerated MIDI back
+    Converter::ParsedMidiFile regenMidi;
+    bool parseRegenOk = converter.parseMidiFile(regenMidiPath, regenMidi, err);
+    ASSERT_TRUE(parseRegenOk);
+
+    // Compare original notes vs regenerated notes
+    // Build maps of (step, pitch) per instrument
+    struct NoteKey {
+        int step;
+        int pitch;
+        bool operator<(const NoteKey& o) const {
+            if (step != o.step) return step < o.step;
+            return pitch < o.pitch;
+        }
+    };
+
+    int totalOrigNotes = 0;
+    int matchedNotes = 0;
+
+    for (const auto& origTrk : origMidi.tracks) {
+        if (!origTrk.isEnabled || origTrk.notes.empty()) continue;
+
+        Harmonic::InstrumentId inst = origTrk.suggestedInstrument;
+        // Find corresponding regenerated track
+        const Converter::ParsedMidiTrack* regenTrk = nullptr;
+        for (const auto& rt : regenMidi.tracks) {
+            if (rt.suggestedInstrument == inst) {
+                regenTrk = &rt;
+                break;
+            }
+        }
+
+        std::cout << "\nComparing Track '" << origTrk.trackName << "' (" << Harmonic::instrumentToString(inst) << "):" << std::endl;
+        std::map<NoteKey, int> origCounts;
+        for (const auto& n : origTrk.notes) {
+            int step = static_cast<int>(std::round(static_cast<double>(n.startTick) / ticksPer16th));
+            origCounts[{step, n.pitch}]++;
+            totalOrigNotes++;
+        }
+
+        std::map<NoteKey, int> regenCounts;
+        if (regenTrk) {
+            int rTicksPer16th = regenMidi.ticksPerQuarter / 4;
+            for (const auto& n : regenTrk->notes) {
+                int step = static_cast<int>(std::round(static_cast<double>(n.startTick) / rTicksPer16th));
+                regenCounts[{step, n.pitch}]++;
+                std::cout << "  Regen has step=" << step << " pitch=" << n.pitch << " (" << Harmonic::noteNumberToName(n.pitch) << ") dur=" << n.durationTicks << std::endl;
+            }
+        }
+
+        int trackMatches = 0;
+        int trackOrig = 0;
+        for (const auto& [key, count] : origCounts) {
+            trackOrig += count;
+            auto it = regenCounts.find(key);
+            if (it != regenCounts.end()) {
+                int common = std::min(count, it->second);
+                trackMatches += common;
+                matchedNotes += common;
+            } else {
+                std::cout << "  MISMATCH: Orig has step=" << key.step << " pitch=" << key.pitch << " (" << Harmonic::noteNumberToName(key.pitch) << ") count=" << count << std::endl;
+            }
+        }
+        float trkPct = (trackOrig > 0) ? (100.0f * trackMatches / trackOrig) : 100.0f;
+        std::cout << "  Track Match: " << trackMatches << "/" << trackOrig << " (" << trkPct << "%)" << std::endl;
+    }
+
+    float overallSimilarity = (totalOrigNotes > 0) ? (100.0f * matchedNotes / totalOrigNotes) : 0.0f;
+    std::cout << "\n>>> OVERALL SIMILARITY: " << matchedNotes << "/" << totalOrigNotes << " (" << overallSimilarity << "%) <<<\n" << std::endl;
+    // User requested similarity >= 80%
+    ASSERT_TRUE(overallSimilarity >= 80.0f);
+}
+
 

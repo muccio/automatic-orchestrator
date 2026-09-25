@@ -89,8 +89,15 @@ Harmonic::OrchestralVoicing VoicingEngine::generateVoicing(const Harmonic::Harmo
 
     // Collect pitch classes
     std::vector<int> chordPcs;
-    for (int p : frame.pitches) chordPcs.push_back(p % 12);
-    if (chordPcs.empty()) chordPcs.push_back(0);
+    if (!frame.chordTones.empty()) {
+        for (int interval : frame.chordTones) {
+            chordPcs.push_back((frame.rootPitchClass + interval) % 12);
+        }
+    } else if (!frame.pitches.empty()) {
+        for (int p : frame.pitches) chordPcs.push_back((p % 12 + 12) % 12);
+    } else {
+        chordPcs = {frame.rootPitchClass, (frame.rootPitchClass + 4) % 12, (frame.rootPitchClass + 7) % 12};
+    }
     std::sort(chordPcs.begin(), chordPcs.end());
     chordPcs.erase(std::unique(chordPcs.begin(), chordPcs.end()), chordPcs.end());
 
@@ -159,6 +166,25 @@ Harmonic::OrchestralVoicing VoicingEngine::generateVoicing(const Harmonic::Harmo
     // 4. PERCUSSION SECTION
     // Timpani: tuned to bass / root or fifth
     assign(Harmonic::InstrumentId::Timpani, bassPc, 36, 53);
+    assign(Harmonic::InstrumentId::OrchestralPerc, 60, 48, 72, Harmonic::ArticulationType::Staccato);
+    assign(Harmonic::InstrumentId::Celesta, topPref, 60, 96, Harmonic::ArticulationType::Staccato);
+
+    // 5. HARP & KEYBOARDS
+    assign(Harmonic::InstrumentId::Harp, (thirdPc >= 0 ? thirdPc : rootPc), 48, 84);
+    assign(Harmonic::InstrumentId::Piano, rootPc, 36, 72);
+    assign(Harmonic::InstrumentId::ChurchOrgan, bassPc, 36, 72);
+
+    // 6. GUITARS & BASS
+    assign(Harmonic::InstrumentId::AcousticGuitar, (thirdPc >= 0 ? thirdPc : rootPc), 40, 72);
+    assign(Harmonic::InstrumentId::ElectricGuitar, rootPc, 40, 76);
+    assign(Harmonic::InstrumentId::BassGuitar, bassPc, 28, 52);
+
+    // 7. CHOIR
+    assign(Harmonic::InstrumentId::ChoirFull, (fifthPc >= 0 ? fifthPc : rootPc), 48, 76);
+
+    // 8. SYNTHS
+    assign(Harmonic::InstrumentId::SynthesizerLead, topPref, 60, 88);
+    assign(Harmonic::InstrumentId::SynthesizerPad, (thirdPc >= 0 ? thirdPc : fifthPc), 48, 72);
 
     return result;
 }

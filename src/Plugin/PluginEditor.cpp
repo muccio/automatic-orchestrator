@@ -7,6 +7,7 @@ static juce::String getShortInstrumentName(Harmonic::InstrumentId id) {
         case Harmonic::InstrumentId::Violas: return "Vla";
         case Harmonic::InstrumentId::Cellos: return "Vc";
         case Harmonic::InstrumentId::DoubleBasses: return "Cb";
+        case Harmonic::InstrumentId::Harp: return "Hrp";
         case Harmonic::InstrumentId::FrenchHorns: return "Hrn";
         case Harmonic::InstrumentId::Trumpets: return "Tpt";
         case Harmonic::InstrumentId::Trombones: return "Trb";
@@ -17,6 +18,15 @@ static juce::String getShortInstrumentName(Harmonic::InstrumentId id) {
         case Harmonic::InstrumentId::Bassoons: return "Bsn";
         case Harmonic::InstrumentId::Timpani: return "Timp";
         case Harmonic::InstrumentId::OrchestralPerc: return "Perc";
+        case Harmonic::InstrumentId::Celesta: return "Cel";
+        case Harmonic::InstrumentId::Piano: return "Pno";
+        case Harmonic::InstrumentId::ChurchOrgan: return "Org";
+        case Harmonic::InstrumentId::AcousticGuitar: return "AGtr";
+        case Harmonic::InstrumentId::ElectricGuitar: return "EGtr";
+        case Harmonic::InstrumentId::BassGuitar: return "EBass";
+        case Harmonic::InstrumentId::ChoirFull: return "Chr";
+        case Harmonic::InstrumentId::SynthesizerLead: return "SynL";
+        case Harmonic::InstrumentId::SynthesizerPad: return "SynP";
         default: return "Inst";
     }
 }
@@ -28,6 +38,7 @@ static juce::Colour getInstrumentColor(Harmonic::InstrumentId id) {
         case Harmonic::InstrumentId::Violas: return juce::Colour(0xffffb703); // Warm amber
         case Harmonic::InstrumentId::Cellos: return juce::Colour(0xff52b788); // Mint green
         case Harmonic::InstrumentId::DoubleBasses: return juce::Colour(0xffb5179e); // Purple
+        case Harmonic::InstrumentId::Harp: return juce::Colour(0xfff72585); // Vibrant pink
         case Harmonic::InstrumentId::FrenchHorns: return juce::Colour(0xfffb8500); // Horn orange
         case Harmonic::InstrumentId::Trumpets: return juce::Colour(0xffff5400); // Bright orange
         case Harmonic::InstrumentId::Trombones: return juce::Colour(0xffff0054); // Coral red
@@ -38,6 +49,15 @@ static juce::Colour getInstrumentColor(Harmonic::InstrumentId id) {
         case Harmonic::InstrumentId::Bassoons: return juce::Colour(0xffcb997e); // Sand/wood
         case Harmonic::InstrumentId::Timpani: return juce::Colour(0xffe63946); // Ruby red
         case Harmonic::InstrumentId::OrchestralPerc: return juce::Colour(0xffff006e); // Magenta
+        case Harmonic::InstrumentId::Celesta: return juce::Colour(0xff7209b7); // Violet
+        case Harmonic::InstrumentId::Piano: return juce::Colour(0xff4361ee); // Blue
+        case Harmonic::InstrumentId::ChurchOrgan: return juce::Colour(0xff3a0ca3); // Deep blue
+        case Harmonic::InstrumentId::AcousticGuitar: return juce::Colour(0xffd4a373); // Acoustic wood
+        case Harmonic::InstrumentId::ElectricGuitar: return juce::Colour(0xffe76f51); // Terracotta
+        case Harmonic::InstrumentId::BassGuitar: return juce::Colour(0xff2a9d8f); // Petrol green
+        case Harmonic::InstrumentId::ChoirFull: return juce::Colour(0xffe9c46a); // Gold
+        case Harmonic::InstrumentId::SynthesizerLead: return juce::Colour(0xff06d6a0); // Neon mint
+        case Harmonic::InstrumentId::SynthesizerPad: return juce::Colour(0xff118ab2); // Neon blue
         default: return juce::Colour(0xff00d2ff);
     }
 }
@@ -733,6 +753,10 @@ MixerChannelStrip::MixerChannelStrip(AutomaticOrchestratorAudioProcessor& p,
     if (sec == Harmonic::OrchestralSection::Brass) secStr = "BRS";
     else if (sec == Harmonic::OrchestralSection::Woodwinds) secStr = "WND";
     else if (sec == Harmonic::OrchestralSection::Percussion) secStr = "PRC";
+    else if (sec == Harmonic::OrchestralSection::Keyboards) secStr = "KEY";
+    else if (sec == Harmonic::OrchestralSection::Guitars) secStr = "GTR";
+    else if (sec == Harmonic::OrchestralSection::Choir) secStr = "CHR";
+    else if (sec == Harmonic::OrchestralSection::Synths) secStr = "SYN";
 
     sectionBadge.setText(secStr, juce::dontSendNotification);
     sectionBadge.setFont(juce::Font(8.0f, juce::Font::bold));
@@ -1374,7 +1398,11 @@ void HollywoodOrchestratorEditor::promptAddInstrument() {
 
     juce::String secName = (activeSection == Harmonic::OrchestralSection::Strings) ? "Strings" :
                            (activeSection == Harmonic::OrchestralSection::Brass) ? "Brass" :
-                           (activeSection == Harmonic::OrchestralSection::Woodwinds) ? "Woodwinds" : "Percussion";
+                           (activeSection == Harmonic::OrchestralSection::Woodwinds) ? "Woodwinds" :
+                           (activeSection == Harmonic::OrchestralSection::Percussion) ? "Percussion" :
+                           (activeSection == Harmonic::OrchestralSection::Keyboards) ? "Keyboards" :
+                           (activeSection == Harmonic::OrchestralSection::Guitars) ? "Guitars" :
+                           (activeSection == Harmonic::OrchestralSection::Choir) ? "Choir" : "Synths";
     menu.addSectionHeader("Add Instrument to " + secName);
 
     struct InstOption {
@@ -1388,6 +1416,7 @@ void HollywoodOrchestratorEditor::promptAddInstrument() {
         {Harmonic::InstrumentId::Violas, Harmonic::OrchestralSection::Strings},
         {Harmonic::InstrumentId::Cellos, Harmonic::OrchestralSection::Strings},
         {Harmonic::InstrumentId::DoubleBasses, Harmonic::OrchestralSection::Strings},
+        {Harmonic::InstrumentId::Harp, Harmonic::OrchestralSection::Strings},
 
         {Harmonic::InstrumentId::FrenchHorns, Harmonic::OrchestralSection::Brass},
         {Harmonic::InstrumentId::Trumpets, Harmonic::OrchestralSection::Brass},
@@ -1400,7 +1429,20 @@ void HollywoodOrchestratorEditor::promptAddInstrument() {
         {Harmonic::InstrumentId::Bassoons, Harmonic::OrchestralSection::Woodwinds},
 
         {Harmonic::InstrumentId::Timpani, Harmonic::OrchestralSection::Percussion},
-        {Harmonic::InstrumentId::OrchestralPerc, Harmonic::OrchestralSection::Percussion}
+        {Harmonic::InstrumentId::OrchestralPerc, Harmonic::OrchestralSection::Percussion},
+        {Harmonic::InstrumentId::Celesta, Harmonic::OrchestralSection::Percussion},
+
+        {Harmonic::InstrumentId::Piano, Harmonic::OrchestralSection::Keyboards},
+        {Harmonic::InstrumentId::ChurchOrgan, Harmonic::OrchestralSection::Keyboards},
+
+        {Harmonic::InstrumentId::AcousticGuitar, Harmonic::OrchestralSection::Guitars},
+        {Harmonic::InstrumentId::ElectricGuitar, Harmonic::OrchestralSection::Guitars},
+        {Harmonic::InstrumentId::BassGuitar, Harmonic::OrchestralSection::Guitars},
+
+        {Harmonic::InstrumentId::ChoirFull, Harmonic::OrchestralSection::Choir},
+
+        {Harmonic::InstrumentId::SynthesizerLead, Harmonic::OrchestralSection::Synths},
+        {Harmonic::InstrumentId::SynthesizerPad, Harmonic::OrchestralSection::Synths}
     };
 
     int menuId = 1;
@@ -1470,7 +1512,8 @@ void HollywoodOrchestratorEditor::switchSection(Harmonic::OrchestralSection sect
                 Harmonic::InstrumentId::Violins2,
                 Harmonic::InstrumentId::Violas,
                 Harmonic::InstrumentId::Cellos,
-                Harmonic::InstrumentId::DoubleBasses
+                Harmonic::InstrumentId::DoubleBasses,
+                Harmonic::InstrumentId::Harp
             };
         } else if (section == Harmonic::OrchestralSection::Brass) {
             insts = {
@@ -1486,10 +1529,31 @@ void HollywoodOrchestratorEditor::switchSection(Harmonic::OrchestralSection sect
                 Harmonic::InstrumentId::Clarinets,
                 Harmonic::InstrumentId::Bassoons
             };
-        } else {
+        } else if (section == Harmonic::OrchestralSection::Percussion) {
             insts = {
                 Harmonic::InstrumentId::Timpani,
-                Harmonic::InstrumentId::OrchestralPerc
+                Harmonic::InstrumentId::OrchestralPerc,
+                Harmonic::InstrumentId::Celesta
+            };
+        } else if (section == Harmonic::OrchestralSection::Keyboards) {
+            insts = {
+                Harmonic::InstrumentId::Piano,
+                Harmonic::InstrumentId::ChurchOrgan
+            };
+        } else if (section == Harmonic::OrchestralSection::Guitars) {
+            insts = {
+                Harmonic::InstrumentId::AcousticGuitar,
+                Harmonic::InstrumentId::ElectricGuitar,
+                Harmonic::InstrumentId::BassGuitar
+            };
+        } else if (section == Harmonic::OrchestralSection::Choir) {
+            insts = {
+                Harmonic::InstrumentId::ChoirFull
+            };
+        } else if (section == Harmonic::OrchestralSection::Synths) {
+            insts = {
+                Harmonic::InstrumentId::SynthesizerLead,
+                Harmonic::InstrumentId::SynthesizerPad
             };
         }
     }

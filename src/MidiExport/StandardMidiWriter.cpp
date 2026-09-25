@@ -106,10 +106,17 @@ void StandardMidiWriter::buildInstrumentTrack(std::vector<uint8_t>& trackBytes,
 
     // Collect chord pitch classes
     std::vector<int> chordPcs;
-    for (int p : harmonic.pitches) {
-        chordPcs.push_back((p % 12 + 12) % 12);
+    if (!harmonic.chordTones.empty()) {
+        for (int interval : harmonic.chordTones) {
+            chordPcs.push_back((harmonic.rootPitchClass + interval) % 12);
+        }
+    } else if (!harmonic.pitches.empty()) {
+        for (int p : harmonic.pitches) {
+            chordPcs.push_back((p % 12 + 12) % 12);
+        }
+    } else {
+        chordPcs = {0, 4, 7};
     }
-    if (chordPcs.empty()) chordPcs = {0, 4, 7};
     std::sort(chordPcs.begin(), chordPcs.end());
     chordPcs.erase(std::unique(chordPcs.begin(), chordPcs.end()), chordPcs.end());
 
@@ -133,12 +140,14 @@ void StandardMidiWriter::buildInstrumentTrack(std::vector<uint8_t>& trackBytes,
 
         // Calculate pitch based on arrangerMode and stepOffset
         int workingBase = voice.midiPitch;
-        if (trackPattern.arrangerMode == "Top" && !harmonic.pitches.empty()) {
-            int maxP = harmonic.pitches.back();
-            workingBase = (voice.midiPitch / 12) * 12 + (maxP % 12);
-        } else if (trackPattern.arrangerMode == "Lowest" && !harmonic.pitches.empty()) {
-            int minP = harmonic.pitches.front();
-            workingBase = (voice.midiPitch / 12) * 12 + (minP % 12);
+        if (trackPattern.arrangerMode == "Top" && !chordPcs.empty()) {
+            int topPc = (!harmonic.chordTones.empty())
+                ? ((harmonic.rootPitchClass + harmonic.chordTones.back()) % 12)
+                : ((!harmonic.pitches.empty()) ? (harmonic.pitches.back() % 12) : chordPcs.back());
+            workingBase = (voice.midiPitch / 12) * 12 + topPc;
+        } else if (trackPattern.arrangerMode == "Lowest" && !chordPcs.empty()) {
+            int lowPc = (harmonic.bassMidiNote % 12 + 12) % 12;
+            workingBase = (voice.midiPitch / 12) * 12 + lowPc;
         } else if (trackPattern.arrangerMode == "Root") {
             workingBase = (voice.midiPitch / 12) * 12 + harmonic.rootPitchClass;
         }
@@ -150,10 +159,12 @@ void StandardMidiWriter::buildInstrumentTrack(std::vector<uint8_t>& trackBytes,
 
         std::vector<int> pitchLadder;
         if (!chordPcs.empty()) {
-            int startOctave = (workingBase / 12) - 3;
-            for (int oct = startOctave; oct <= startOctave + 6; ++oct) {
+            for (int oct = 1; oct <= 9; ++oct) {
                 for (int pc : chordPcs) {
-                    pitchLadder.push_back(oct * 12 + pc);
+                    int p = oct * 12 + pc;
+                    if (p >= 12 && p <= 127) {
+                        pitchLadder.push_back(p);
+                    }
                 }
             }
             std::sort(pitchLadder.begin(), pitchLadder.end());

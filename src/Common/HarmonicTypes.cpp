@@ -83,6 +83,7 @@ std::string instrumentToString(InstrumentId id) {
         case InstrumentId::Violas: return "Violas";
         case InstrumentId::Cellos: return "Cellos";
         case InstrumentId::DoubleBasses: return "Double Basses";
+        case InstrumentId::Harp: return "Harp";
         case InstrumentId::Trumpets: return "Trumpets";
         case InstrumentId::FrenchHorns: return "French Horns";
         case InstrumentId::Trombones: return "Trombones";
@@ -93,6 +94,15 @@ std::string instrumentToString(InstrumentId id) {
         case InstrumentId::Bassoons: return "Bassoons";
         case InstrumentId::Timpani: return "Timpani";
         case InstrumentId::OrchestralPerc: return "Percussion";
+        case InstrumentId::Celesta: return "Celesta";
+        case InstrumentId::Piano: return "Piano";
+        case InstrumentId::ChurchOrgan: return "Church Organ";
+        case InstrumentId::AcousticGuitar: return "Acoustic Guitar";
+        case InstrumentId::ElectricGuitar: return "Electric Guitar";
+        case InstrumentId::BassGuitar: return "Bass Guitar";
+        case InstrumentId::ChoirFull: return "Choir";
+        case InstrumentId::SynthesizerLead: return "Synth Lead";
+        case InstrumentId::SynthesizerPad: return "Synth Pad";
         default: return "Instrument";
     }
 }
@@ -148,6 +158,7 @@ OrchestralSection getInstrumentSection(InstrumentId id) {
         case InstrumentId::Violas:
         case InstrumentId::Cellos:
         case InstrumentId::DoubleBasses:
+        case InstrumentId::Harp:
             return OrchestralSection::Strings;
         case InstrumentId::FrenchHorns:
         case InstrumentId::Trumpets:
@@ -161,7 +172,20 @@ OrchestralSection getInstrumentSection(InstrumentId id) {
             return OrchestralSection::Woodwinds;
         case InstrumentId::Timpani:
         case InstrumentId::OrchestralPerc:
+        case InstrumentId::Celesta:
             return OrchestralSection::Percussion;
+        case InstrumentId::Piano:
+        case InstrumentId::ChurchOrgan:
+            return OrchestralSection::Keyboards;
+        case InstrumentId::AcousticGuitar:
+        case InstrumentId::ElectricGuitar:
+        case InstrumentId::BassGuitar:
+            return OrchestralSection::Guitars;
+        case InstrumentId::ChoirFull:
+            return OrchestralSection::Choir;
+        case InstrumentId::SynthesizerLead:
+        case InstrumentId::SynthesizerPad:
+            return OrchestralSection::Synths;
         default:
             return OrchestralSection::Strings;
     }
@@ -184,6 +208,16 @@ int getDefaultInstrumentChannel(InstrumentId id) {
         case InstrumentId::Bassoons: return 13;
         case InstrumentId::Timpani: return 14;
         case InstrumentId::OrchestralPerc: return 15;
+        case InstrumentId::Harp: return 16;
+        case InstrumentId::Celesta: return 15;
+        case InstrumentId::Piano: return 1;
+        case InstrumentId::ChurchOrgan: return 16;
+        case InstrumentId::AcousticGuitar: return 2;
+        case InstrumentId::ElectricGuitar: return 3;
+        case InstrumentId::BassGuitar: return 4;
+        case InstrumentId::ChoirFull: return 5;
+        case InstrumentId::SynthesizerLead: return 6;
+        case InstrumentId::SynthesizerPad: return 7;
         default: return 1;
     }
 }

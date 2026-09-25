@@ -206,10 +206,15 @@ int SequencerEngine::computeRelativeStepPitch(Harmonic::InstrumentId inst,
                                              int stepOctave) {
     // Collect unique pitch classes from current harmonic frame
     std::vector<int> chordPcs;
-    for (int p : currentVoicing.sourceHarmonic.pitches) {
-        chordPcs.push_back((p % 12 + 12) % 12);
-    }
-    if (chordPcs.empty()) {
+    if (!currentVoicing.sourceHarmonic.chordTones.empty()) {
+        for (int interval : currentVoicing.sourceHarmonic.chordTones) {
+            chordPcs.push_back((currentVoicing.sourceHarmonic.rootPitchClass + interval) % 12);
+        }
+    } else if (!currentVoicing.sourceHarmonic.pitches.empty()) {
+        for (int p : currentVoicing.sourceHarmonic.pitches) {
+            chordPcs.push_back((p % 12 + 12) % 12);
+        }
+    } else {
         chordPcs = {0, 4, 7}; // Default C Major triad
     }
     std::sort(chordPcs.begin(), chordPcs.end());
@@ -218,15 +223,16 @@ int SequencerEngine::computeRelativeStepPitch(Harmonic::InstrumentId inst,
     int workingBase = basePitch;
 
     // Apply Arranger Mode
-    if (track.arrangerMode == "Top" && !currentVoicing.sourceHarmonic.pitches.empty()) {
-        int maxP = currentVoicing.sourceHarmonic.pitches.back();
-        // Shift octave to match basePitch octave register
+    if (track.arrangerMode == "Top" && !chordPcs.empty()) {
+        int topPc = (!currentVoicing.sourceHarmonic.chordTones.empty())
+            ? ((currentVoicing.sourceHarmonic.rootPitchClass + currentVoicing.sourceHarmonic.chordTones.back()) % 12)
+            : ((!currentVoicing.sourceHarmonic.pitches.empty()) ? (currentVoicing.sourceHarmonic.pitches.back() % 12) : chordPcs.back());
         int targetOctave = basePitch / 12;
-        workingBase = (targetOctave * 12) + (maxP % 12);
-    } else if (track.arrangerMode == "Lowest" && !currentVoicing.sourceHarmonic.pitches.empty()) {
-        int minP = currentVoicing.sourceHarmonic.pitches.front();
+        workingBase = (targetOctave * 12) + topPc;
+    } else if (track.arrangerMode == "Lowest" && !chordPcs.empty()) {
+        int lowPc = (currentVoicing.sourceHarmonic.bassMidiNote % 12 + 12) % 12;
         int targetOctave = basePitch / 12;
-        workingBase = (targetOctave * 12) + (minP % 12);
+        workingBase = (targetOctave * 12) + lowPc;
     } else if (track.arrangerMode == "Root") {
         int rootPc = currentVoicing.sourceHarmonic.rootPitchClass;
         int targetOctave = basePitch / 12;
@@ -242,10 +248,12 @@ int SequencerEngine::computeRelativeStepPitch(Harmonic::InstrumentId inst,
     if (offset != 0 && !chordPcs.empty()) {
         // Build ladder of chord pitches covering full register
         std::vector<int> pitchLadder;
-        int startOctave = (workingBase / 12) - 3;
-        for (int oct = startOctave; oct <= startOctave + 6; ++oct) {
+        for (int oct = 1; oct <= 9; ++oct) {
             for (int pc : chordPcs) {
-                pitchLadder.push_back(oct * 12 + pc);
+                int p = oct * 12 + pc;
+                if (p >= 12 && p <= 127) {
+                    pitchLadder.push_back(p);
+                }
             }
         }
         std::sort(pitchLadder.begin(), pitchLadder.end());
@@ -345,8 +353,18 @@ void SequencerEngine::processBlock(int numSamples,
 
     // Step calculation (1/16th = 0.25 beat)
     double stepDivision = 0.25;
-    int step = static_cast<int>(std::floor(currentPpq / stepDivision)) % 16;
-    if (step < 0) step += 16;
+    int patternSteps = 16;
+    {
+        std::lock_guard<std::mutex> lock(patternMutex);
+        if (activePattern.barLength > 1) {
+            patternSteps = activePattern.barLength * 16;
+        }
+        for (const auto& [inst, track] : activePattern.tracks) {
+            if ((int)track.stepCount > patternSteps) patternSteps = track.stepCount;
+        }
+    }
+    int step = static_cast<int>(std::floor(currentPpq / stepDivision)) % patternSteps;
+    if (step < 0) step += patternSteps;
 
     bool isNewStep = (step != currentStep);
     currentStep = step;

@@ -58,7 +58,11 @@ enum class OrchestralSection {
     Strings,
     Brass,
     Woodwinds,
-    Percussion
+    Percussion,
+    Keyboards,
+    Guitars,
+    Choir,
+    Synths
 };
 
 enum class InstrumentId {
@@ -68,19 +72,40 @@ enum class InstrumentId {
     Violas,
     Cellos,
     DoubleBasses,
+    Harp,
+
     // Brass
     Trumpets,
     FrenchHorns,
     Trombones,
     Tuba,
+
     // Woodwinds
     Flutes,
     Oboes,
     Clarinets,
     Bassoons,
+
     // Percussion
     Timpani,
-    OrchestralPerc
+    OrchestralPerc,
+    Celesta,
+
+    // Keyboards
+    Piano,
+    ChurchOrgan,
+
+    // Guitars & Bass
+    AcousticGuitar,
+    ElectricGuitar,
+    BassGuitar,
+
+    // Choir
+    ChoirFull,
+
+    // Synths
+    SynthesizerLead,
+    SynthesizerPad
 };
 
 enum class ArticulationType {

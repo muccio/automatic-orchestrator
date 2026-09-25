@@ -1,4 +1,5 @@
 #include "MidiPresetConverter.h"
+#include "Orchestration/VoicingEngine.h"
 #include <fstream>
 #include <sstream>
 #include <cmath>
@@ -291,16 +292,17 @@ bool MidiPresetConverter::parseMidiBytes(const uint8_t* data, size_t size, Parse
             parsedTrack.suggestedArticulation = detectArticulation(parsedTrack);
 
             // Suggested arranger mode
-            if (parsedTrack.suggestedSection == Harmonic::OrchestralSection::Strings) {
-                if (parsedTrack.suggestedInstrument == Harmonic::InstrumentId::DoubleBasses) parsedTrack.suggestedArrangerMode = "Lowest";
-                else if (parsedTrack.suggestedInstrument == Harmonic::InstrumentId::Violins1) parsedTrack.suggestedArrangerMode = "Top";
-                else parsedTrack.suggestedArrangerMode = "Chord";
-            } else if (parsedTrack.suggestedSection == Harmonic::OrchestralSection::Brass) {
-                if (parsedTrack.suggestedInstrument == Harmonic::InstrumentId::Tuba) parsedTrack.suggestedArrangerMode = "Lowest";
-                else if (parsedTrack.suggestedInstrument == Harmonic::InstrumentId::Trumpets) parsedTrack.suggestedArrangerMode = "Top";
-                else parsedTrack.suggestedArrangerMode = "Chord";
-            } else {
+            if (parsedTrack.suggestedInstrument == Harmonic::InstrumentId::DoubleBasses ||
+                parsedTrack.suggestedInstrument == Harmonic::InstrumentId::Tuba ||
+                parsedTrack.suggestedInstrument == Harmonic::InstrumentId::BassGuitar) {
+                parsedTrack.suggestedArrangerMode = "Lowest";
+            } else if (parsedTrack.suggestedInstrument == Harmonic::InstrumentId::Violins1 ||
+                       parsedTrack.suggestedInstrument == Harmonic::InstrumentId::Trumpets ||
+                       parsedTrack.suggestedInstrument == Harmonic::InstrumentId::Flutes ||
+                       parsedTrack.suggestedInstrument == Harmonic::InstrumentId::SynthesizerLead) {
                 parsedTrack.suggestedArrangerMode = "Top";
+            } else {
+                parsedTrack.suggestedArrangerMode = "Chord";
             }
 
             outData.tracks.push_back(parsedTrack);
@@ -527,13 +529,62 @@ Harmonic::InstrumentId MidiPresetConverter::detectInstrument(const std::string& 
         return Harmonic::InstrumentId::Bassoons;
     }
 
+    // Plucked & Harp
+    if (lower.find("harp") != std::string::npos || lower.find("arpa") != std::string::npos) {
+        return Harmonic::InstrumentId::Harp;
+    }
+
+    // Keyboards
+    if (lower.find("piano") != std::string::npos || lower.find("pianoforte") != std::string::npos ||
+        lower.find("grand") != std::string::npos || lower.find("upright") != std::string::npos) {
+        return Harmonic::InstrumentId::Piano;
+    }
+    if (lower.find("organ") != std::string::npos || lower.find("organo") != std::string::npos) {
+        return Harmonic::InstrumentId::ChurchOrgan;
+    }
+
+    // Guitars & Electric Bass
+    if (lower.find("bass guitar") != std::string::npos || lower.find("electric bass") != std::string::npos ||
+        lower.find("basso elettrico") != std::string::npos || lower.find("e. bass") != std::string::npos ||
+        lower.find("slap bass") != std::string::npos) {
+        return Harmonic::InstrumentId::BassGuitar;
+    }
+    if (lower.find("acoustic guitar") != std::string::npos || lower.find("chitarra acustica") != std::string::npos ||
+        lower.find("ac. guitar") != std::string::npos || lower.find("nylon") != std::string::npos) {
+        return Harmonic::InstrumentId::AcousticGuitar;
+    }
+    if (lower.find("electric guitar") != std::string::npos || lower.find("chitarra elettrica") != std::string::npos ||
+        lower.find("el. guitar") != std::string::npos || lower.find("guitar") != std::string::npos ||
+        lower.find("chitarra") != std::string::npos) {
+        return Harmonic::InstrumentId::ElectricGuitar;
+    }
+
+    // Choir
+    if (lower.find("choir") != std::string::npos || lower.find("coro") != std::string::npos ||
+        lower.find("voices") != std::string::npos || lower.find("vocal") != std::string::npos ||
+        lower.find("satb") != std::string::npos) {
+        return Harmonic::InstrumentId::ChoirFull;
+    }
+
     // Percussion Matching
+    if (lower.find("celesta") != std::string::npos || lower.find("celeste") != std::string::npos ||
+        lower.find("glock") != std::string::npos) {
+        return Harmonic::InstrumentId::Celesta;
+    }
     if (lower.find("timpani") != std::string::npos || lower.find("timp") != std::string::npos) {
         return Harmonic::InstrumentId::Timpani;
     }
     if (lower.find("perc") != std::string::npos || lower.find("drum") != std::string::npos ||
         lower.find("cymb") != std::string::npos || lower.find("snare") != std::string::npos) {
         return Harmonic::InstrumentId::OrchestralPerc;
+    }
+
+    // Synthesizers
+    if (lower.find("synth lead") != std::string::npos || lower.find("lead synth") != std::string::npos) {
+        return Harmonic::InstrumentId::SynthesizerLead;
+    }
+    if (lower.find("pad") != std::string::npos || lower.find("synth") != std::string::npos) {
+        return Harmonic::InstrumentId::SynthesizerPad;
     }
 
     // Channel-based fallback (Standard 16-channel template)
@@ -654,8 +705,11 @@ Sequencer::OrchestralPattern MidiPresetConverter::convertToPattern(const ParsedM
     Sequencer::OrchestralPattern pattern;
     pattern.name = options.presetName.empty() ? midiData.fileName : options.presetName;
     pattern.bpm = (options.tempoBpm > 20.0) ? options.tempoBpm : midiData.bpm;
-    int numSteps = (options.lengthSteps > 0) ? options.lengthSteps : 16;
-    pattern.barLength = (numSteps >= 32) ? 2 : 1;
+    int ticksPer16th = std::max(1, midiData.ticksPerQuarter / 4);
+    int detectedSteps = (midiData.totalTicks > 0) ? static_cast<int>(std::ceil(static_cast<double>(midiData.totalTicks) / ticksPer16th)) : 16;
+    int detectedBars = std::max(1, (detectedSteps + 15) / 16);
+    int numSteps = (options.lengthSteps > 0) ? options.lengthSteps : (detectedBars * 16);
+    pattern.barLength = std::max(1, (numSteps + 15) / 16);
 
     int rootPc = (options.overrideRootPitchClass >= 0) ? options.overrideRootPitchClass : tonalResult.detectedRootPitchClass;
     rootPc = ((rootPc % 12) + 12) % 12;
@@ -688,6 +742,22 @@ Sequencer::OrchestralPattern MidiPresetConverter::convertToPattern(const ParsedM
         chordPcs = {rootPc, (rootPc + 4) % 12, (rootPc + 7) % 12};
     }
 
+    // Build the canonical reference HarmonicFrame and voicing
+    Harmonic::HarmonicFrame refFrame;
+    refFrame.rootPitchClass = rootPc;
+    refFrame.bassMidiNote = (tonalResult.referenceBassMidiNote > 0) ? tonalResult.referenceBassMidiNote : (rootPc + 36);
+    refFrame.quality = tonalResult.detectedChordQuality;
+    refFrame.chordTones = tonalResult.detectedChordTones;
+    refFrame.chordName = tonalResult.detectedChordName;
+    refFrame.activeMode = tonalResult.detectedMode;
+
+    Orchestration::VoicingEngine ve;
+    auto refVoicing = ve.generateVoicing(refFrame);
+    std::map<Harmonic::InstrumentId, int> defaultVoicePitches;
+    for (const auto& v : refVoicing.voices) {
+        defaultVoicePitches[v.instrument] = v.midiPitch;
+    }
+
     // Build the harmony pitch ladder (all chord tones from MIDI 12 to 127)
     std::vector<int> pitchLadder;
     for (int oct = 1; oct <= 9; ++oct) {
@@ -714,7 +784,6 @@ Sequencer::OrchestralPattern MidiPresetConverter::convertToPattern(const ParsedM
         return bestIdx;
     };
 
-    int ticksPer16th = std::max(1, midiData.ticksPerQuarter / 4);
     int64_t maxPatternTicks = static_cast<int64_t>(numSteps) * ticksPer16th;
 
     // Track instruments assigned in MIDI data
@@ -764,40 +833,34 @@ Sequencer::OrchestralPattern MidiPresetConverter::convertToPattern(const ParsedM
             trackPattern.steps[s].action = Harmonic::StepActionType::Rest;
         }
 
-        // Determine workingBase according to track register and arrangerMode
-        int workingBase = 60;
-        if (config.arrangerMode == "Lowest") {
-            int refPitch = (track.minPitch > 0 && track.minPitch < 127) ? track.minPitch : ((track.averagePitch > 0) ? track.averagePitch : track.notes.front().pitch);
-            int targetOctave = std::clamp(refPitch / 12, 1, 8);
-            workingBase = (targetOctave * 12) + chordPcs.front();
-            if (workingBase > refPitch) workingBase -= 12;
-        } else if (config.arrangerMode == "Top") {
-            int refPitch = (track.maxPitch > 0) ? track.maxPitch : ((track.averagePitch > 0) ? track.averagePitch : track.notes.front().pitch);
-            int targetOctave = std::clamp(refPitch / 12, 1, 8);
-            workingBase = (targetOctave * 12) + chordPcs.back();
-            if (workingBase < refPitch) workingBase += 12;
-        } else if (config.arrangerMode == "Root") {
-            int refPitch = (track.minPitch > 0 && track.minPitch < 127) ? track.minPitch : ((track.averagePitch > 0) ? track.averagePitch : track.notes.front().pitch);
-            int targetOctave = std::clamp(refPitch / 12, 1, 8);
-            workingBase = (targetOctave * 12) + rootPc;
-            if (workingBase > refPitch) workingBase -= 12;
+        // Determine workingBase according to canonical VoicingEngine assignment and arrangerMode
+        int voicePitch = 60;
+        if (defaultVoicePitches.find(config.instrument) != defaultVoicePitches.end()) {
+            voicePitch = defaultVoicePitches[config.instrument];
         } else {
-            // "Chord" or others: pick chord tone closest to track's lowest/register pitch
-            int refPitch = (track.minPitch > 0 && track.minPitch < 127) ? track.minPitch : ((track.averagePitch > 0) ? track.averagePitch : track.notes.front().pitch);
-            int targetOctave = std::clamp(refPitch / 12, 1, 8);
-            int bestDist = 999;
-            for (int oct = targetOctave - 1; oct <= targetOctave + 1; ++oct) {
-                for (int pc : chordPcs) {
-                    int cand = oct * 12 + pc;
-                    if (std::abs(cand - refPitch) < bestDist) {
-                        bestDist = std::abs(cand - refPitch);
-                        workingBase = cand;
-                    }
-                }
-            }
+            voicePitch = (config.arrangerMode == "Lowest") ? 36 : (config.arrangerMode == "Top" ? 72 : 60);
         }
 
-        int baseIdx = findLadderIndex(workingBase);
+        int workingBase = voicePitch;
+        if (config.arrangerMode == "Top" && !chordPcs.empty()) {
+            int topPc = (!tonalResult.detectedChordTones.empty())
+                ? ((rootPc + tonalResult.detectedChordTones.back()) % 12)
+                : chordPcs.back();
+            workingBase = (voicePitch / 12) * 12 + topPc;
+        } else if (config.arrangerMode == "Lowest" && !chordPcs.empty()) {
+            int lowPc = (refFrame.bassMidiNote % 12 + 12) % 12;
+            workingBase = (voicePitch / 12) * 12 + lowPc;
+        } else if (config.arrangerMode == "Root") {
+            workingBase = (voicePitch / 12) * 12 + rootPc;
+        }
+
+        int refPitch = (track.averagePitch > 0) ? track.averagePitch : ((track.minPitch > 0 && track.minPitch < 127) ? track.minPitch : workingBase);
+        int octOff = static_cast<int>(std::round(static_cast<double>(refPitch - workingBase) / 12.0));
+        octOff = std::clamp(octOff, -2, 2);
+        trackPattern.octaveOffset = octOff;
+
+        int effectiveBase = workingBase + (octOff * 12);
+        int baseIdx = findLadderIndex(effectiveBase);
 
         // Group notes by 16th step to detect dyads, triads, and polyphony
         std::map<int, std::vector<MidiNoteEvent>> stepNotes;

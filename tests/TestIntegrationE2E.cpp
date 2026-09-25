@@ -52,7 +52,7 @@ TEST_CASE(IntegrationE2E, CompleteCinematicWorkflow) {
 
     // Voicing Generation
     auto v1 = voicer.generateVoicing(dorianFrame, Orchestration::VoicingStyle::AcousticPyramid);
-    ASSERT_EQ(v1.voices.size(), 14);
+    ASSERT_EQ(v1.voices.size(), 25);
 
     // Verify all instruments are in valid tessituras
     for (const auto& voice : v1.voices) {

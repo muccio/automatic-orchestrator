@@ -12,8 +12,9 @@ static const Harmonic::InstrumentId ALL_INSTRUMENTS[] = {
     Harmonic::InstrumentId::Violas,
     Harmonic::InstrumentId::Cellos,
     Harmonic::InstrumentId::DoubleBasses,
-    Harmonic::InstrumentId::FrenchHorns,
+    Harmonic::InstrumentId::Harp,
     Harmonic::InstrumentId::Trumpets,
+    Harmonic::InstrumentId::FrenchHorns,
     Harmonic::InstrumentId::Trombones,
     Harmonic::InstrumentId::Tuba,
     Harmonic::InstrumentId::Flutes,
@@ -21,18 +22,28 @@ static const Harmonic::InstrumentId ALL_INSTRUMENTS[] = {
     Harmonic::InstrumentId::Clarinets,
     Harmonic::InstrumentId::Bassoons,
     Harmonic::InstrumentId::Timpani,
-    Harmonic::InstrumentId::OrchestralPerc
+    Harmonic::InstrumentId::OrchestralPerc,
+    Harmonic::InstrumentId::Celesta,
+    Harmonic::InstrumentId::Piano,
+    Harmonic::InstrumentId::ChurchOrgan,
+    Harmonic::InstrumentId::AcousticGuitar,
+    Harmonic::InstrumentId::ElectricGuitar,
+    Harmonic::InstrumentId::BassGuitar,
+    Harmonic::InstrumentId::ChoirFull,
+    Harmonic::InstrumentId::SynthesizerLead,
+    Harmonic::InstrumentId::SynthesizerPad
 };
+static const int NUM_ALL_INSTRUMENTS = sizeof(ALL_INSTRUMENTS) / sizeof(ALL_INSTRUMENTS[0]);
 
 static int instrumentToId(Harmonic::InstrumentId id) {
-    for (int i = 0; i < 15; ++i) {
+    for (int i = 0; i < NUM_ALL_INSTRUMENTS; ++i) {
         if (ALL_INSTRUMENTS[i] == id) return i + 1;
     }
     return 1;
 }
 
 static Harmonic::InstrumentId idToInstrument(int id) {
-    if (id >= 1 && id <= 15) return ALL_INSTRUMENTS[id - 1];
+    if (id >= 1 && id <= NUM_ALL_INSTRUMENTS) return ALL_INSTRUMENTS[id - 1];
     return Harmonic::InstrumentId::Violins1;
 }
 
@@ -65,7 +76,7 @@ TrackMappingRowComponent::TrackMappingRowComponent(int trackIdx, const ParsedMid
     noteStatsLabel.setColour(juce::Label::textColourId, juce::Colour(0xffa0aec0));
     addAndMakeVisible(noteStatsLabel);
 
-    for (int i = 0; i < 15; ++i) {
+    for (int i = 0; i < NUM_ALL_INSTRUMENTS; ++i) {
         instrumentSelector.addItem(Harmonic::instrumentToString(ALL_INSTRUMENTS[i]).c_str(), i + 1);
     }
     instrumentSelector.setSelectedId(instrumentToId(trk.suggestedInstrument), juce::dontSendNotification);
@@ -148,6 +159,22 @@ void TrackMappingRowComponent::updateSectionBadge() {
         case Harmonic::OrchestralSection::Percussion:
             name = "PERCUSSION";
             bgCol = juce::Colour(0xff805ad5);
+            break;
+        case Harmonic::OrchestralSection::Keyboards:
+            name = "KEYBOARDS";
+            bgCol = juce::Colour(0xff3182ce);
+            break;
+        case Harmonic::OrchestralSection::Guitars:
+            name = "GUITARS";
+            bgCol = juce::Colour(0xffdd6b20);
+            break;
+        case Harmonic::OrchestralSection::Choir:
+            name = "CHOIR";
+            bgCol = juce::Colour(0xff319795);
+            break;
+        case Harmonic::OrchestralSection::Synths:
+            name = "SYNTHS";
+            bgCol = juce::Colour(0xffd53f8c);
             break;
     }
     sectionBadge.setText(name, juce::dontSendNotification);

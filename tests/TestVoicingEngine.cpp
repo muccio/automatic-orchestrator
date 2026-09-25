@@ -27,8 +27,8 @@ TEST_CASE(VoicingEngine, AcousticPyramidDistribution) {
 
     auto voicing = engine.generateVoicing(cMaj, Orchestration::VoicingStyle::AcousticPyramid);
 
-    // Verify all 5 string instruments are assigned
-    ASSERT_EQ(voicing.voices.size(), 14); // 5 strings + 4 brass + 4 woodwinds + 1 timpani
+    // Verify all instruments are assigned
+    ASSERT_EQ(voicing.voices.size(), 25);
 
     int bassPitch = -1;
     int celloPitch = -1;
