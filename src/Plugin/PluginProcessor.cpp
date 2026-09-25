@@ -282,10 +282,13 @@ std::string AutomaticOrchestratorAudioProcessor::exportMidiForDrag(int numBars,
     // Clean whitespace from filename
     std::replace(filename.begin(), filename.end(), ' ', '_');
 
-    midiWriter.exportMidiFile(sequencerEngine.getPattern(),
+    auto pat = sequencerEngine.getPattern();
+    int bars = (numBars > 0) ? numBars : std::max(1, pat.barLength);
+
+    midiWriter.exportMidiFile(pat,
                              voicingCopy,
                              sequencerEngine.getTempo(),
-                             numBars,
+                             bars,
                              filename,
                              singleStem);
 

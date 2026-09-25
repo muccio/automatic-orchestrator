@@ -7,11 +7,11 @@
 
 namespace Sequencer {
 
-static std::vector<int> makeDefaultCc1Curve(int peakVal = 100, int minVal = 45) {
-    std::vector<int> curve(16);
-    // Smooth natural orchestral dynamics swell across 16 steps
-    for (int i = 0; i < 16; ++i) {
-        double phase = (double)i / 15.0; // 0.0 to 1.0
+static std::vector<int> makeDefaultCc1Curve(int peakVal = 100, int minVal = 45, int numSteps = 32) {
+    std::vector<int> curve(numSteps);
+    // Smooth natural orchestral dynamics swell
+    for (int i = 0; i < numSteps; ++i) {
+        double phase = (double)(i % 16) / 15.0; // 0.0 to 1.0 per bar
         // Bell shape curve peaking around step 10
         double factor = std::sin(phase * 3.14159265);
         curve[i] = minVal + static_cast<int>((peakVal - minVal) * factor);
@@ -27,7 +27,8 @@ static TrackPattern makeConfiguredTrack(Harmonic::InstrumentId id,
                                        float volume,
                                        const std::vector<int>& stepPitches,
                                        Harmonic::StepActionType action = Harmonic::StepActionType::Ostinato,
-                                       int peakCc1 = 95) {
+                                       int peakCc1 = 95,
+                                       int totalSteps = 32) {
     TrackPattern tp;
     tp.instrument = id;
     tp.trackName = name;
@@ -40,12 +41,12 @@ static TrackPattern makeConfiguredTrack(Harmonic::InstrumentId id,
     tp.pan = 0.0f;
     tp.isMuted = false;
     tp.isSolo = false;
-    tp.stepCount = 16;
+    tp.stepCount = totalSteps;
     tp.stepDivision = 0.25; // 1/16th note
-    tp.cc1Curve = makeDefaultCc1Curve(peakCc1, 40);
-    tp.steps.resize(16);
+    tp.cc1Curve = makeDefaultCc1Curve(peakCc1, 40, totalSteps);
+    tp.steps.resize(totalSteps);
 
-    for (int i = 0; i < 16; ++i) {
+    for (int i = 0; i < totalSteps; ++i) {
         StepDefinition sd;
         sd.action = action;
         sd.articulation = art;
@@ -547,7 +548,8 @@ std::string OrchestralPattern::toJson() const {
     ss << "  \"bpm\": " << bpm << ",\n";
     ss << "  \"timeSigNumerator\": " << timeSigNumerator << ",\n";
     ss << "  \"timeSigDenominator\": " << timeSigDenominator << ",\n";
-    ss << "  \"barLength\": " << barLength << ",\n";
+    int effectiveBars = std::max(barLength, (getTotalSteps() + 15) / 16);
+    ss << "  \"barLength\": " << effectiveBars << ",\n";
     ss << "  \"tracks\": [\n";
     size_t tIdx = 0;
     for (const auto& [inst, trk] : tracks) {
@@ -563,7 +565,7 @@ std::string OrchestralPattern::toJson() const {
         ss << "      \"pan\": " << trk.pan << ",\n";
         ss << "      \"isMuted\": " << (trk.isMuted ? "true" : "false") << ",\n";
         ss << "      \"isSolo\": " << (trk.isSolo ? "true" : "false") << ",\n";
-        ss << "      \"stepCount\": " << trk.stepCount << ",\n";
+        ss << "      \"stepCount\": " << std::max(trk.stepCount, (int)trk.steps.size()) << ",\n";
         ss << "      \"stepDivision\": " << trk.stepDivision << ",\n";
         ss << "      \"cc1Curve\": [";
         for (size_t c = 0; c < trk.cc1Curve.size(); ++c) {
@@ -665,9 +667,51 @@ OrchestralPattern OrchestralPattern::fromJson(const std::string& jsonStr) {
             if (tp.steps.empty()) {
                 tp.steps.resize(16);
             }
+            if ((int)tp.steps.size() > tp.stepCount) {
+                tp.stepCount = (int)tp.steps.size();
+            }
             p.tracks[tp.instrument] = tp;
         }
     }
+
+    // Determine true barLength from maximum track steps
+    int maxSteps = 16;
+    for (const auto& [inst, trk] : p.tracks) {
+        if ((int)trk.steps.size() > maxSteps) maxSteps = (int)trk.steps.size();
+        if (trk.stepCount > maxSteps) maxSteps = trk.stepCount;
+    }
+    if (p.barLength * 16 < maxSteps) {
+        p.barLength = (maxSteps + 15) / 16;
+    }
+    p.barLength = std::clamp(p.barLength, 1, 16);
+    int targetSteps = p.barLength * 16;
+
+    // Normalize all tracks to targetSteps
+    for (auto& [inst, trk] : p.tracks) {
+        trk.stepCount = targetSteps;
+        if ((int)trk.steps.size() < targetSteps) {
+            int oldSz = (int)trk.steps.size();
+            trk.steps.resize(targetSteps);
+            for (int s = oldSz; s < targetSteps; ++s) {
+                if (oldSz > 0) trk.steps[s] = trk.steps[s % oldSz];
+                else {
+                    trk.steps[s].active = false;
+                    trk.steps[s].action = Harmonic::StepActionType::Rest;
+                    trk.steps[s].lengthSteps = 1;
+                    trk.steps[s].velocity = 90;
+                    trk.steps[s].articulation = trk.articulation;
+                }
+            }
+        }
+        if ((int)trk.cc1Curve.size() < targetSteps) {
+            int oldCc = (int)trk.cc1Curve.size();
+            trk.cc1Curve.resize(targetSteps, 80);
+            for (int s = oldCc; s < targetSteps; ++s) {
+                if (oldCc > 0) trk.cc1Curve[s] = trk.cc1Curve[s % oldCc];
+            }
+        }
+    }
+
     return p;
 }
 

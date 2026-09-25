@@ -305,14 +305,23 @@ void StepGridComponent::setCurrentStep(int step) {
 }
 
 void StepGridComponent::refreshFromPattern(const Sequencer::OrchestralPattern& pattern) {
+    totalSteps = pattern.getTotalSteps();
     if (pattern.tracks.find(activeInstrument) != pattern.tracks.end()) {
         currentTrack = pattern.tracks.at(activeInstrument);
+    }
+    if (currentBarView > getNumBars()) {
+        currentBarView = 0;
     }
     repaint();
 }
 
+void StepGridComponent::setBarView(int barView) {
+    currentBarView = std::clamp(barView, 0, getNumBars());
+    repaint();
+}
+
 void StepGridComponent::handleCellClick(int step, int row) {
-    if (step < 0 || step >= numSteps || row < 0 || row >= numPitchRows) return;
+    if (step < 0 || step >= totalSteps || row < 0 || row >= numPitchRows) return;
     int targetOffset = getPitchOffsetForRow(row);
 
     if (currentTool == 1) { // Eraser
@@ -340,30 +349,39 @@ void StepGridComponent::handleCellClick(int step, int row) {
 }
 
 void StepGridComponent::mouseMove(const juce::MouseEvent& e) {
+    int startStep = 0;
+    int numStepsToDraw = 16;
+    getVisibleStepRange(startStep, numStepsToDraw);
+
     float gridX = (float)e.x - labelWidth;
-    if (gridX < 0) {
+    float gridY = (float)e.y - rulerHeight;
+    if (gridX < 0 || gridY < 0) {
         setMouseCursor(juce::MouseCursor::NormalCursor);
         return;
     }
 
     float gridW = (float)getWidth() - labelWidth;
-    float cellW = gridW / (float)numSteps;
-    float cellH = (float)getHeight() / (float)numPitchRows;
+    float cellW = gridW / (float)numStepsToDraw;
+    float gridH = (float)getHeight() - rulerHeight;
+    float cellH = gridH / (float)numPitchRows;
 
     bool nearRightEdge = false;
-    for (size_t s = 0; s < currentTrack.steps.size() && s < (size_t)numSteps; ++s) {
+    for (size_t s = 0; s < currentTrack.steps.size(); ++s) {
         const auto& stepDef = currentTrack.steps[s];
         if (stepDef.active && stepDef.action != Harmonic::StepActionType::Rest) {
+            int len = std::clamp(stepDef.lengthSteps, 1, std::max(1, (int)currentTrack.steps.size() - (int)s));
+            int noteEnd = (int)s + len;
+            if (noteEnd <= startStep || (int)s >= startStep + numStepsToDraw) continue;
+
             std::vector<int> allOffsets = { stepDef.stepOffset };
             for (int eo : stepDef.extraOffsets) allOffsets.push_back(eo);
 
             for (int offVal : allOffsets) {
                 int row = getRowForPitchOffset(offVal);
                 if (row >= 0 && row < numPitchRows) {
-                    float startX = labelWidth + s * cellW;
-                    int len = std::clamp(stepDef.lengthSteps, 1, 16 - (int)s);
-                    float endX = startX + len * cellW;
-                    float y = row * cellH;
+                    float visualEnd = std::min((float)noteEnd, (float)(startStep + numStepsToDraw));
+                    float endX = labelWidth + (visualEnd - startStep) * cellW;
+                    float y = rulerHeight + row * cellH;
 
                     if (e.x >= endX - 8.0f && e.x <= endX + 4.0f && e.y >= y && e.y <= y + cellH) {
                         nearRightEdge = true;
@@ -383,33 +401,62 @@ void StepGridComponent::mouseMove(const juce::MouseEvent& e) {
 }
 
 void StepGridComponent::mouseDown(const juce::MouseEvent& e) {
+    int startStep = 0;
+    int numStepsToDraw = 16;
+    getVisibleStepRange(startStep, numStepsToDraw);
+
     float gridX = (float)e.x - labelWidth;
     if (gridX < 0) return;
 
+    // Check if clicked in ruler to switch/focus bar
+    if (e.y < (int)rulerHeight) {
+        float gridW = (float)getWidth() - labelWidth;
+        float cellW = gridW / (float)numStepsToDraw;
+        int clickedVisualStep = static_cast<int>(gridX / cellW);
+        int globalStep = startStep + clickedVisualStep;
+        int clickedBar = (globalStep / 16) + 1;
+        if (clickedBar <= getNumBars()) {
+            if (currentBarView == 0) {
+                setBarView(clickedBar);
+            } else {
+                setBarView(0); // toggle back to all
+            }
+            if (onBarViewChanged) onBarViewChanged(currentBarView);
+        }
+        return;
+    }
+
+    float gridY = (float)e.y - rulerHeight;
+    if (gridY < 0) return;
+
     float gridW = (float)getWidth() - labelWidth;
-    float cellW = gridW / (float)numSteps;
-    float cellH = (float)getHeight() / (float)numPitchRows;
+    float cellW = gridW / (float)numStepsToDraw;
+    float gridH = (float)getHeight() - rulerHeight;
+    float cellH = gridH / (float)numPitchRows;
 
     // Check if clicking near right edge of an existing active note to resize
-    for (size_t s = 0; s < currentTrack.steps.size() && s < (size_t)numSteps; ++s) {
+    for (size_t s = 0; s < currentTrack.steps.size(); ++s) {
         const auto& stepDef = currentTrack.steps[s];
         if (stepDef.active && stepDef.action != Harmonic::StepActionType::Rest) {
+            int len = std::clamp(stepDef.lengthSteps, 1, std::max(1, (int)currentTrack.steps.size() - (int)s));
+            int noteEnd = (int)s + len;
+            if (noteEnd <= startStep || (int)s >= startStep + numStepsToDraw) continue;
+
             std::vector<int> allOffsets = { stepDef.stepOffset };
             for (int eo : stepDef.extraOffsets) allOffsets.push_back(eo);
 
             for (int offVal : allOffsets) {
                 int row = getRowForPitchOffset(offVal);
                 if (row >= 0 && row < numPitchRows) {
-                    float startX = labelWidth + s * cellW;
-                    int len = std::clamp(stepDef.lengthSteps, 1, 16 - (int)s);
-                    float endX = startX + len * cellW;
-                    float y = row * cellH;
+                    float visualEnd = std::min((float)noteEnd, (float)(startStep + numStepsToDraw));
+                    float endX = labelWidth + (visualEnd - startStep) * cellW;
+                    float y = rulerHeight + row * cellH;
 
                     if (e.x >= endX - 8.0f && e.x <= endX + 4.0f && e.y >= y && e.y <= y + cellH) {
                         isResizing = true;
                         resizeStep = (int)s;
                         originalLength = len;
-                        dragStartX = startX;
+                        dragStartX = labelWidth + ((float)s - startStep) * cellW;
                         return;
                     }
                 }
@@ -417,24 +464,30 @@ void StepGridComponent::mouseDown(const juce::MouseEvent& e) {
         }
     }
 
-    int step = static_cast<int>(gridX / cellW);
-    int row = static_cast<int>((float)e.y / cellH);
+    int step = startStep + static_cast<int>(gridX / cellW);
+    int row = static_cast<int>(gridY / cellH);
 
     handleCellClick(step, row);
 }
 
 void StepGridComponent::mouseDrag(const juce::MouseEvent& e) {
+    int startStep = 0;
+    int numStepsToDraw = 16;
+    getVisibleStepRange(startStep, numStepsToDraw);
+
     float gridX = (float)e.x - labelWidth;
     if (gridX < 0) return;
 
     float gridW = (float)getWidth() - labelWidth;
-    float cellW = gridW / (float)numSteps;
-    float cellH = (float)getHeight() / (float)numPitchRows;
+    float cellW = gridW / (float)numStepsToDraw;
+    float gridH = (float)getHeight() - rulerHeight;
+    float cellH = gridH / (float)numPitchRows;
 
     if (isResizing && resizeStep >= 0) {
         float currentX = (float)e.x;
         float diffX = currentX - dragStartX;
-        int newLength = std::clamp(static_cast<int>(std::round(diffX / cellW)), 1, 16 - resizeStep);
+        int maxLen = std::max(1, totalSteps - resizeStep);
+        int newLength = std::clamp(static_cast<int>(std::round(diffX / cellW)), 1, maxLen);
         if (resizeStep < (int)currentTrack.steps.size()) {
             currentTrack.steps[resizeStep].lengthSteps = newLength;
             processor.setTrackStepLength(activeInstrument, resizeStep, newLength);
@@ -443,10 +496,13 @@ void StepGridComponent::mouseDrag(const juce::MouseEvent& e) {
         return;
     }
 
-    int step = static_cast<int>(gridX / cellW);
-    int row = static_cast<int>((float)e.y / cellH);
+    float gridY = (float)e.y - rulerHeight;
+    if (gridY < 0) return;
 
-    if (step >= 0 && step < numSteps && row >= 0 && row < numPitchRows) {
+    int step = startStep + static_cast<int>(gridX / cellW);
+    int row = static_cast<int>(gridY / cellH);
+
+    if (step >= 0 && step < totalSteps && row >= 0 && row < numPitchRows) {
         int targetOffset = getPitchOffsetForRow(row);
         if (currentTool == 1) {
             processor.removeTrackStepOffset(activeInstrument, step, targetOffset);
@@ -467,6 +523,10 @@ void StepGridComponent::mouseUp(const juce::MouseEvent&) {
 }
 
 void StepGridComponent::paint(juce::Graphics& g) {
+    int startStep = 0;
+    int numStepsToDraw = 16;
+    getVisibleStepRange(startStep, numStepsToDraw);
+
     float w = (float)getWidth();
     float h = (float)getHeight();
 
@@ -474,15 +534,49 @@ void StepGridComponent::paint(juce::Graphics& g) {
     g.fillAll(juce::Colour(0xff0d0f13));
 
     float gridW = w - labelWidth;
-    float cellW = gridW / (float)numSteps;
-    float cellH = h / (float)numPitchRows;
+    float cellW = gridW / (float)numStepsToDraw;
+    float gridH = h - rulerHeight;
+    float cellH = gridH / (float)numPitchRows;
+
+    // Top Ruler Background
+    g.setColour(juce::Colour(0xff141720));
+    g.fillRect(0.0f, 0.0f, w, rulerHeight);
+    g.setColour(juce::Colour(0xff232834));
+    g.drawHorizontalLine((int)rulerHeight, 0.0f, w);
+
+    // Top-left corner
+    g.setColour(juce::Colour(0xff101319));
+    g.fillRect(0.0f, 0.0f, labelWidth, rulerHeight);
+    g.setColour(juce::Colour(0xff718096));
+    g.setFont(juce::Font(9.0f, juce::Font::bold));
+    g.drawText("PITCH / BAR", 2, 0, (int)labelWidth - 4, (int)rulerHeight, juce::Justification::centred);
+
+    // Ruler bar and beat markings
+    for (int i = 0; i < numStepsToDraw; ++i) {
+        int globalStep = startStep + i;
+        float x = labelWidth + i * cellW;
+
+        int barNum = (globalStep / 16) + 1;
+        int stepInBar = globalStep % 16;
+        int beatInBar = (stepInBar / 4) + 1;
+
+        if (stepInBar == 0) {
+            g.setColour(juce::Colour(0xff00d2ff));
+            g.setFont(juce::Font(10.0f, juce::Font::bold));
+            g.drawText("BAR " + juce::String(barNum), (int)x + 4, 1, 60, (int)rulerHeight - 2, juce::Justification::left);
+        } else if (stepInBar % 4 == 0) {
+            g.setColour(juce::Colour(0xff718096));
+            g.setFont(juce::Font(8.5f));
+            g.drawText(juce::String(barNum) + "." + juce::String(beatInBar), (int)x + 2, 2, 24, (int)rulerHeight - 4, juce::Justification::left);
+        }
+    }
 
     // Y-Axis Labels Column
     g.setColour(juce::Colour(0xff13161c));
-    g.fillRect(0.0f, 0.0f, labelWidth, h);
+    g.fillRect(0.0f, rulerHeight, labelWidth, gridH);
 
     for (int r = 0; r < numPitchRows; ++r) {
-        float y = r * cellH;
+        float y = rulerHeight + r * cellH;
         int offset = getPitchOffsetForRow(r);
 
         juce::String labelText;
@@ -508,20 +602,30 @@ void StepGridComponent::paint(juce::Graphics& g) {
     }
 
     // Step columns
-    for (int s = 0; s < numSteps; ++s) {
-        float x = labelWidth + s * cellW;
+    for (int i = 0; i < numStepsToDraw; ++i) {
+        int globalStep = startStep + i;
+        float x = labelWidth + i * cellW;
 
         // Alternating beat background shading
-        if ((s / 4) % 2 == 1) {
+        if ((globalStep / 4) % 2 == 1) {
             g.setColour(juce::Colour(0xff11141a));
-            g.fillRect(x, 0.0f, cellW, h);
+            g.fillRect(x, rulerHeight, cellW, gridH);
         }
 
         // Vertical grid lines
-        bool isBeat = (s % 4 == 0);
-        bool isBar = (s % 8 == 0);
-        g.setColour(isBar ? juce::Colour(0xff3b4252) : (isBeat ? juce::Colour(0xff232730) : juce::Colour(0xff161920)));
-        g.drawVerticalLine((int)x, 0.0f, h);
+        bool isBar = (globalStep % 16 == 0);
+        bool isBeat = (globalStep % 4 == 0);
+
+        if (isBar && i > 0) {
+            g.setColour(juce::Colour(0xff4a5568));
+            g.fillRect(x - 1.0f, 0.0f, 2.0f, h);
+        } else if (isBeat) {
+            g.setColour(juce::Colour(0xff252a36));
+            g.drawVerticalLine((int)x, rulerHeight, h);
+        } else {
+            g.setColour(juce::Colour(0xff161920));
+            g.drawVerticalLine((int)x, rulerHeight, h);
+        }
     }
 
     // -------------------------------------------------------------
@@ -538,30 +642,37 @@ void StepGridComponent::paint(juce::Graphics& g) {
         juce::Colour ghostCol = getInstrumentColor(trackInst);
         juce::String instShort = getShortInstrumentName(trackInst);
 
-        for (size_t s = 0; s < trk.steps.size() && s < (size_t)numSteps; ++s) {
+        for (size_t s = 0; s < trk.steps.size(); ++s) {
             const auto& sDef = trk.steps[s];
-            if (sDef.active && sDef.action != Harmonic::StepActionType::Rest) {
-                std::vector<int> allOffsets = { sDef.stepOffset };
-                for (int eo : sDef.extraOffsets) allOffsets.push_back(eo);
+            if (!sDef.active || sDef.action == Harmonic::StepActionType::Rest) continue;
 
-                for (int offVal : allOffsets) {
-                    int row = getRowForPitchOffset(offVal);
-                    if (row >= 0 && row < numPitchRows) {
-                        float gx = labelWidth + s * cellW + 1.5f;
-                        float gy = row * cellH + 1.5f;
-                        int gLen = std::clamp(sDef.lengthSteps, 1, 16 - (int)s);
-                        float gBlockW = (gLen * cellW) - 3.0f;
-                        float gBlockH = cellH - 3.0f;
+            int len = std::clamp(sDef.lengthSteps, 1, std::max(1, (int)trk.steps.size() - (int)s));
+            int noteEnd = (int)s + len;
+            if (noteEnd <= startStep || (int)s >= startStep + numStepsToDraw) continue;
 
-                        // Translucent body
-                        g.setColour(ghostCol.withAlpha(0.24f));
-                        g.fillRoundedRectangle(gx, gy, gBlockW, gBlockH, 3.0f);
+            std::vector<int> allOffsets = { sDef.stepOffset };
+            for (int eo : sDef.extraOffsets) allOffsets.push_back(eo);
 
-                        // Translucent subtle outline
-                        g.setColour(ghostCol.withAlpha(0.50f));
-                        g.drawRoundedRectangle(gx, gy, gBlockW, gBlockH, 3.0f, 0.75f);
+            for (int offVal : allOffsets) {
+                int row = getRowForPitchOffset(offVal);
+                if (row >= 0 && row < numPitchRows) {
+                    float visualStart = std::max((float)s, (float)startStep);
+                    float visualEnd = std::min((float)noteEnd, (float)(startStep + numStepsToDraw));
+                    float gx = labelWidth + (visualStart - startStep) * cellW + 1.5f;
+                    float gy = rulerHeight + row * cellH + 1.5f;
+                    float gBlockW = std::max(3.0f, (visualEnd - visualStart) * cellW - 3.0f);
+                    float gBlockH = cellH - 3.0f;
 
-                        // Instrument name badge in ghost note
+                    // Translucent body
+                    g.setColour(ghostCol.withAlpha(0.24f));
+                    g.fillRoundedRectangle(gx, gy, gBlockW, gBlockH, 3.0f);
+
+                    // Translucent subtle outline
+                    g.setColour(ghostCol.withAlpha(0.50f));
+                    g.drawRoundedRectangle(gx, gy, gBlockW, gBlockH, 3.0f, 0.75f);
+
+                    // Instrument name badge in ghost note
+                    if (s >= (size_t)startStep && gBlockW > 16.0f) {
                         g.setFont(juce::Font(8.0f));
                         g.setColour(ghostCol.withAlpha(0.75f));
                         g.drawText(instShort, (int)gx + 3, (int)gy, (int)gBlockW - 6, (int)gBlockH, juce::Justification::centredLeft);
@@ -576,35 +687,44 @@ void StepGridComponent::paint(juce::Graphics& g) {
     // -------------------------------------------------------------
     juce::Colour activeColor = getInstrumentColor(activeInstrument);
 
-    for (size_t s = 0; s < currentTrack.steps.size() && s < (size_t)numSteps; ++s) {
+    for (size_t s = 0; s < currentTrack.steps.size(); ++s) {
         const auto& stepDef = currentTrack.steps[s];
-        if (stepDef.active && stepDef.action != Harmonic::StepActionType::Rest) {
-            std::vector<int> allOffsets = { stepDef.stepOffset };
-            for (int eo : stepDef.extraOffsets) allOffsets.push_back(eo);
+        if (!stepDef.active || stepDef.action == Harmonic::StepActionType::Rest) continue;
 
-            for (int offVal : allOffsets) {
-                int row = getRowForPitchOffset(offVal);
-                if (row >= 0 && row < numPitchRows) {
-                    float x = labelWidth + s * cellW + 1.5f;
-                    float y = row * cellH + 1.5f;
-                    int len = std::clamp(stepDef.lengthSteps, 1, 16 - (int)s);
-                    float blockW = (len * cellW) - 3.0f;
-                    float blockH = cellH - 3.0f;
+        int len = std::clamp(stepDef.lengthSteps, 1, std::max(1, (int)currentTrack.steps.size() - (int)s));
+        int noteEnd = (int)s + len;
+        if (noteEnd <= startStep || (int)s >= startStep + numStepsToDraw) continue;
 
-                    // Glowing note block
-                    g.setColour(activeColor.withAlpha(0.92f));
-                    g.fillRoundedRectangle(x, y, blockW, blockH, 3.0f);
+        std::vector<int> allOffsets = { stepDef.stepOffset };
+        for (int eo : stepDef.extraOffsets) allOffsets.push_back(eo);
 
-                    g.setColour(juce::Colours::white);
-                    g.drawRoundedRectangle(x, y, blockW, blockH, 3.0f, 1.2f);
+        for (int offVal : allOffsets) {
+            int row = getRowForPitchOffset(offVal);
+            if (row >= 0 && row < numPitchRows) {
+                float visualStart = std::max((float)s, (float)startStep);
+                float visualEnd = std::min((float)noteEnd, (float)(startStep + numStepsToDraw));
+                float x = labelWidth + (visualStart - startStep) * cellW + 1.5f;
+                float y = rulerHeight + row * cellH + 1.5f;
+                float blockW = std::max(3.0f, (visualEnd - visualStart) * cellW - 3.0f);
+                float blockH = cellH - 3.0f;
 
-                    // Right-edge resize grip handle
+                // Glowing note block
+                g.setColour(activeColor.withAlpha(0.92f));
+                g.fillRoundedRectangle(x, y, blockW, blockH, 3.0f);
+
+                g.setColour(juce::Colours::white);
+                g.drawRoundedRectangle(x, y, blockW, blockH, 3.0f, 1.2f);
+
+                // Right-edge resize grip handle (if note finishes within view)
+                if (noteEnd <= startStep + numStepsToDraw && blockW >= 10.0f) {
                     float gripX = x + blockW - 5.0f;
                     g.setColour(juce::Colours::white.withAlpha(0.85f));
                     g.drawLine(gripX, y + 3.0f, gripX, y + blockH - 3.0f, 1.5f);
                     g.drawLine(gripX + 2.0f, y + 4.0f, gripX + 2.0f, y + blockH - 4.0f, 1.0f);
+                }
 
-                    // Pitch offset label
+                // Pitch offset label
+                if (s >= (size_t)startStep && blockW >= 18.0f) {
                     juce::String txt = offVal > 0 ? "+" + juce::String(offVal) : (offVal == 0 ? "0" : juce::String(offVal));
                     g.setFont(juce::Font(9.0f, juce::Font::bold));
                     g.setColour(juce::Colours::white);
@@ -615,12 +735,12 @@ void StepGridComponent::paint(juce::Graphics& g) {
     }
 
     // Playhead line
-    if (currentStep >= 0 && currentStep < numSteps) {
-        float playX = labelWidth + currentStep * cellW;
-        g.setColour(juce::Colours::white.withAlpha(0.9f));
+    if (currentStep >= startStep && currentStep < startStep + numStepsToDraw) {
+        float playX = labelWidth + (currentStep - startStep) * cellW;
+        g.setColour(juce::Colours::white.withAlpha(0.95f));
         g.drawVerticalLine((int)playX, 0.0f, h);
         g.setColour(juce::Colour(0xff00d2ff).withAlpha(0.25f));
-        g.fillRect(playX, 0.0f, cellW, h);
+        g.fillRect(playX, rulerHeight, cellW, gridH);
     }
 }
 
@@ -639,35 +759,53 @@ void Cc1LaneComponent::setActiveInstrument(Harmonic::InstrumentId inst) {
     repaint();
 }
 
+void Cc1LaneComponent::setBarView(int barView) {
+    currentBarView = barView;
+    repaint();
+}
+
 void Cc1LaneComponent::refreshFromPattern(const Sequencer::OrchestralPattern& pattern) {
+    totalSteps = pattern.getTotalSteps();
     if (pattern.tracks.find(activeInstrument) != pattern.tracks.end()) {
         cc1Curve = pattern.tracks.at(activeInstrument).cc1Curve;
     }
     if (cc1Curve.empty()) {
-        cc1Curve.assign(16, 80);
+        cc1Curve.assign(totalSteps, 80);
+    } else if ((int)cc1Curve.size() < totalSteps) {
+        int oldSz = (int)cc1Curve.size();
+        cc1Curve.resize(totalSteps, 80);
+        for (int i = oldSz; i < totalSteps; ++i) {
+            cc1Curve[i] = cc1Curve[i % oldSz];
+        }
     }
     repaint();
 }
 
 void Cc1LaneComponent::updateCc1At(float mouseX, float mouseY) {
+    int startStep = 0;
+    int numStepsToDraw = 16;
+    getVisibleStepRange(startStep, numStepsToDraw);
+
     float labelWidth = 62.0f;
     float laneX = mouseX - labelWidth;
     if (laneX < 0) return;
 
     float laneW = (float)getWidth() - labelWidth;
-    float stepW = laneW / 16.0f;
-    int step = static_cast<int>(laneX / stepW);
-    step = std::clamp(step, 0, 15);
+    float stepW = laneW / (float)numStepsToDraw;
+    int visualStep = static_cast<int>(laneX / stepW);
+    visualStep = std::clamp(visualStep, 0, numStepsToDraw - 1);
+    int step = startStep + visualStep;
 
     float h = (float)getHeight();
     float normalizedVal = 1.0f - std::clamp(mouseY / h, 0.0f, 1.0f);
     int ccVal = static_cast<int>(normalizedVal * 127.0f);
 
-    if (step < (int)cc1Curve.size()) {
-        cc1Curve[step] = ccVal;
-        processor.setTrackCc1(activeInstrument, step, ccVal);
-        repaint();
+    if (step >= (int)cc1Curve.size()) {
+        cc1Curve.resize(step + 1, 80);
     }
+    cc1Curve[step] = ccVal;
+    processor.setTrackCc1(activeInstrument, step, ccVal);
+    repaint();
 }
 
 void Cc1LaneComponent::mouseDown(const juce::MouseEvent& e) {
@@ -679,6 +817,10 @@ void Cc1LaneComponent::mouseDrag(const juce::MouseEvent& e) {
 }
 
 void Cc1LaneComponent::paint(juce::Graphics& g) {
+    int startStep = 0;
+    int numStepsToDraw = 16;
+    getVisibleStepRange(startStep, numStepsToDraw);
+
     float w = (float)getWidth();
     float h = (float)getHeight();
     float labelWidth = 62.0f;
@@ -698,15 +840,16 @@ void Cc1LaneComponent::paint(juce::Graphics& g) {
     g.drawHorizontalLine(0, 0.0f, w);
 
     float laneW = w - labelWidth;
-    float stepW = laneW / 16.0f;
+    float stepW = laneW / (float)numStepsToDraw;
 
     // Draw CC1 Bars and Curve
     juce::Path curvePath;
     curvePath.startNewSubPath(labelWidth, h);
 
-    for (int s = 0; s < 16; ++s) {
-        float x = labelWidth + s * stepW;
-        int val = (s < (int)cc1Curve.size()) ? cc1Curve[s] : 80;
+    for (int i = 0; i < numStepsToDraw; ++i) {
+        int globalStep = startStep + i;
+        float x = labelWidth + i * stepW;
+        int val = (globalStep < (int)cc1Curve.size()) ? cc1Curve[globalStep] : 80;
         float barH = (val / 127.0f) * (h - 6.0f);
         float barY = h - barH;
 
@@ -719,6 +862,12 @@ void Cc1LaneComponent::paint(juce::Graphics& g) {
         g.drawHorizontalLine((int)barY, x + 1.0f, x + stepW - 1.0f);
 
         curvePath.lineTo(x + stepW * 0.5f, barY);
+
+        // Distinct bar separator
+        if (globalStep % 16 == 0 && i > 0) {
+            g.setColour(juce::Colour(0xff4a5568));
+            g.fillRect(x - 1.0f, 0.0f, 2.0f, h);
+        }
     }
 
     curvePath.lineTo(w, h);
@@ -1089,6 +1238,22 @@ HollywoodOrchestratorEditor::HollywoodOrchestratorEditor(AutomaticOrchestratorAu
     };
     addAndMakeVisible(nextPresetBtn);
 
+    loadPresetBtn.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff2d3748));
+    loadPresetBtn.onClick = [this]() {
+        auto chooser = std::make_shared<juce::FileChooser>(
+            "Open Orchestral Preset JSON",
+            audioProcessor.getPresetsFolder(),
+            "*.json");
+        chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+            [this, chooser](const juce::FileChooser& fc) {
+                auto file = fc.getResult();
+                if (file.existsAsFile()) {
+                    loadPresetFile(file);
+                }
+            });
+    };
+    addAndMakeVisible(loadPresetBtn);
+
     savePresetBtn.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff2d3748));
     savePresetBtn.onClick = [this]() { saveCurrentPreset(); };
     addAndMakeVisible(savePresetBtn);
@@ -1206,6 +1371,42 @@ HollywoodOrchestratorEditor::HollywoodOrchestratorEditor(AutomaticOrchestratorAu
     activeInstrumentTitle.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(activeInstrumentTitle);
 
+    // Bar Navigation & View Mode Controls
+    barViewSelector.addItem("ALL BARS", 1);
+    barViewSelector.setSelectedId(1, juce::dontSendNotification);
+    barViewSelector.onChange = [this]() {
+        int id = barViewSelector.getSelectedId();
+        int barView = (id <= 1) ? 0 : (id - 1);
+        if (stepGrid) stepGrid->setBarView(barView);
+        if (cc1Lane) cc1Lane->setBarView(barView);
+    };
+    addAndMakeVisible(barViewSelector);
+
+    prevBarBtn.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff2d3748));
+    prevBarBtn.onClick = [this]() {
+        int currentId = barViewSelector.getSelectedId();
+        if (currentId > 1) {
+            barViewSelector.setSelectedId(currentId - 1);
+        }
+    };
+    addAndMakeVisible(prevBarBtn);
+
+    nextBarBtn.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff2d3748));
+    nextBarBtn.onClick = [this]() {
+        int currentId = barViewSelector.getSelectedId();
+        if (currentId < barViewSelector.getNumItems()) {
+            barViewSelector.setSelectedId(currentId + 1);
+        }
+    };
+    addAndMakeVisible(nextBarBtn);
+
+    copyBarBtn.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff2d3748));
+    copyBarBtn.onClick = [this]() {
+        audioProcessor.copyBar1ToAllBars();
+        loadCurrentPatternIntoUi();
+    };
+    addAndMakeVisible(copyBarBtn);
+
     noteGridBox.addItem("1/16", 1);
     noteGridBox.addItem("1/16T", 2);
     noteGridBox.addItem("1/8", 3);
@@ -1233,7 +1434,9 @@ HollywoodOrchestratorEditor::HollywoodOrchestratorEditor(AutomaticOrchestratorAu
     addAndMakeVisible(eraserBtn);
 
     clearBtn.onClick = [this]() {
-        for (int s = 0; s < 16; ++s) {
+        auto pat = audioProcessor.getCurrentPattern();
+        int total = pat.getTotalSteps();
+        for (int s = 0; s < total; ++s) {
             audioProcessor.setTrackStep(selectedInstrument, s, false, 0, 0, Harmonic::ArticulationType::Sustain);
         }
         loadCurrentPatternIntoUi();
@@ -1242,6 +1445,11 @@ HollywoodOrchestratorEditor::HollywoodOrchestratorEditor(AutomaticOrchestratorAu
 
     // Step Grid Component
     stepGrid = std::make_unique<StepGridComponent>(audioProcessor);
+    stepGrid->onBarViewChanged = [this](int newBarView) {
+        int selId = (newBarView <= 0) ? 1 : (newBarView + 1);
+        barViewSelector.setSelectedId(selId, juce::dontSendNotification);
+        if (cc1Lane) cc1Lane->setBarView(newBarView);
+    };
     addAndMakeVisible(*stepGrid);
 
     // CC1 Lane Component
@@ -1272,11 +1480,22 @@ HollywoodOrchestratorEditor::HollywoodOrchestratorEditor(AutomaticOrchestratorAu
     sigBadge.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(sigBadge);
 
-    lengthBadge.setFont(juce::Font(11.0f, juce::Font::bold));
-    lengthBadge.setColour(juce::Label::backgroundColourId, juce::Colour(0xff1a202c));
-    lengthBadge.setColour(juce::Label::textColourId, juce::Colour(0xffedf2f7));
-    lengthBadge.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(lengthBadge);
+    lengthSelector.addItem("1 BAR (16 Steps)", 1);
+    lengthSelector.addItem("2 BARS (32 Steps)", 2);
+    lengthSelector.addItem("3 BARS (48 Steps)", 3);
+    lengthSelector.addItem("4 BARS (64 Steps)", 4);
+    lengthSelector.addItem("6 BARS (96 Steps)", 6);
+    lengthSelector.addItem("8 BARS (128 Steps)", 8);
+    lengthSelector.addItem("16 BARS (256 Steps)", 16);
+    lengthSelector.setSelectedId(2, juce::dontSendNotification);
+    lengthSelector.onChange = [this]() {
+        int bars = lengthSelector.getSelectedId();
+        if (bars > 0) {
+            audioProcessor.setPatternBarLength(bars);
+            loadCurrentPatternIntoUi();
+        }
+    };
+    addAndMakeVisible(lengthSelector);
 
     masterDragBtn = std::make_unique<MidiDragComponent>(audioProcessor, std::nullopt, "DRAG MASTER MIDI (16 CH)");
     addAndMakeVisible(*masterDragBtn);
@@ -1328,6 +1547,10 @@ void HollywoodOrchestratorEditor::updateViewMode(bool mixerView) {
     voice1Btn.setVisible(showArranger);
     voice2Btn.setVisible(showArranger);
     activeInstrumentTitle.setVisible(showArranger);
+    barViewSelector.setVisible(showArranger);
+    prevBarBtn.setVisible(showArranger);
+    nextBarBtn.setVisible(showArranger);
+    copyBarBtn.setVisible(showArranger);
     noteGridBox.setVisible(showArranger);
     pencilBtn.setVisible(showArranger);
     eraserBtn.setVisible(showArranger);
@@ -1605,6 +1828,23 @@ void HollywoodOrchestratorEditor::loadCurrentPatternIntoUi() {
     // Update tempo badge
     tempoBadge.setText(juce::String((int)pat.bpm) + " bpm", juce::dontSendNotification);
 
+    // Update lengthSelector to match pattern bar length
+    int bars = std::max(1, pat.barLength);
+    lengthSelector.setSelectedId(bars, juce::dontSendNotification);
+
+    // Update barViewSelector items
+    int currentSelected = barViewSelector.getSelectedId();
+    if (currentSelected <= 0) currentSelected = 1;
+    barViewSelector.clear(juce::dontSendNotification);
+    barViewSelector.addItem("SHOW ALL BARS (" + juce::String(bars) + " BARS / " + juce::String(bars * 16) + " STEPS)", 1);
+    for (int b = 1; b <= bars; ++b) {
+        int startSt = (b - 1) * 16 + 1;
+        int endSt = b * 16;
+        barViewSelector.addItem("BAR " + juce::String(b) + " (" + juce::String(startSt) + "-" + juce::String(endSt) + ")", b + 1);
+    }
+    if (currentSelected > bars + 1) currentSelected = 1;
+    barViewSelector.setSelectedId(currentSelected, juce::dontSendNotification);
+
     // Refresh each instrument row
     for (auto& row : instrumentRows) {
         if (row != nullptr) {
@@ -1626,6 +1866,35 @@ void HollywoodOrchestratorEditor::loadCurrentPatternIntoUi() {
     }
     if (cc1Lane != nullptr) {
         cc1Lane->refreshFromPattern(pat);
+    }
+}
+
+void HollywoodOrchestratorEditor::loadPresetFile(const juce::File& file) {
+    if (!file.existsAsFile()) return;
+    if (audioProcessor.loadPresetFromFile(file)) {
+        juce::String name = file.getFileNameWithoutExtension();
+        populatePresetSelector();
+        presetSelector.setText(name, juce::dontSendNotification);
+        loadCurrentPatternIntoUi();
+        if (mixerComponent != nullptr && isMixerView) {
+            mixerComponent->refreshFromPattern(audioProcessor.getCurrentPattern());
+        }
+    }
+}
+
+bool HollywoodOrchestratorEditor::isInterestedInFileDrag(const juce::StringArray& files) {
+    for (const auto& f : files) {
+        if (f.endsWithIgnoreCase(".json")) return true;
+    }
+    return false;
+}
+
+void HollywoodOrchestratorEditor::filesDropped(const juce::StringArray& files, int /*x*/, int /*y*/) {
+    for (const auto& f : files) {
+        if (f.endsWithIgnoreCase(".json")) {
+            loadPresetFile(juce::File(f));
+            break;
+        }
     }
 }
 
@@ -1681,15 +1950,16 @@ void HollywoodOrchestratorEditor::resized() {
     int h = getHeight();
 
     // Top Row Controls
-    mainModeBtn.setBounds(15, 48, 50, 22);
-    mixerModeBtn.setBounds(68, 48, 50, 22);
+    mainModeBtn.setBounds(12, 48, 46, 22);
+    mixerModeBtn.setBounds(60, 48, 46, 22);
 
-    prevPresetBtn.setBounds(124, 48, 22, 22);
-    presetSelector.setBounds(148, 48, 145, 22);
-    nextPresetBtn.setBounds(295, 48, 22, 22);
+    prevPresetBtn.setBounds(110, 48, 20, 22);
+    presetSelector.setBounds(132, 48, 128, 22);
+    nextPresetBtn.setBounds(262, 48, 20, 22);
 
-    savePresetBtn.setBounds(320, 48, 45, 22);
-    saveAsPresetBtn.setBounds(368, 48, 68, 22);
+    loadPresetBtn.setBounds(286, 48, 52, 22);
+    savePresetBtn.setBounds(342, 48, 44, 22);
+    saveAsPresetBtn.setBounds(390, 48, 66, 22);
 
     chordDisplayBadge.setBounds(w / 2 - 75, 15, 150, 48);
     tempoBadge.setBounds(w - 380, 48, 75, 22);
@@ -1740,14 +2010,25 @@ void HollywoodOrchestratorEditor::resized() {
         int rightW = w - rightX - 10;
 
         // Header controls for step grid
-        voice1Btn.setBounds(rightX, contentY, 60, 22);
-        voice2Btn.setBounds(rightX + 65, contentY, 60, 22);
-        activeInstrumentTitle.setBounds(rightX + 135, contentY, 200, 22);
+        voice1Btn.setBounds(rightX, contentY, 52, 22);
+        voice2Btn.setBounds(rightX + 55, contentY, 52, 22);
+        activeInstrumentTitle.setBounds(rightX + 112, contentY, 115, 22);
 
-        noteGridBox.setBounds(rightX + rightW - 220, contentY, 65, 22);
-        pencilBtn.setBounds(rightX + rightW - 150, contentY, 45, 22);
-        eraserBtn.setBounds(rightX + rightW - 100, contentY, 45, 22);
-        clearBtn.setBounds(rightX + rightW - 50, contentY, 45, 22);
+        int toolsRight = rightX + rightW;
+        clearBtn.setBounds(toolsRight - 46, contentY, 46, 22);
+        eraserBtn.setBounds(toolsRight - 92, contentY, 43, 22);
+        pencilBtn.setBounds(toolsRight - 138, contentY, 43, 22);
+        noteGridBox.setBounds(toolsRight - 198, contentY, 57, 22);
+
+        // Bar Navigation & View Mode
+        int barNavX = rightX + 232;
+        prevBarBtn.setBounds(barNavX, contentY, 20, 22);
+        int barSelW = std::max(110, toolsRight - 200 - (barNavX + 22) - 105);
+        barViewSelector.setBounds(barNavX + 22, contentY, barSelW, 22);
+        int barSelRight = barViewSelector.getRight();
+        nextBarBtn.setBounds(barSelRight + 2, contentY, 20, 22);
+        int copyBtnW = std::max(75, toolsRight - 200 - (barSelRight + 26));
+        copyBarBtn.setBounds(barSelRight + 24, contentY, copyBtnW, 22);
 
         // Step grid and CC1 lane
         int laneH = 65;
@@ -1765,9 +2046,9 @@ void HollywoodOrchestratorEditor::resized() {
     // Bottom Bar (Y = h - 56)
     int bottomY = h - 56;
     velocityLabel.setBounds(15, bottomY + 2, 60, 18);
-    velocitySlider.setBounds(75, bottomY, 180, 22);
-    sigBadge.setBounds(270, bottomY, 45, 22);
-    lengthBadge.setBounds(325, bottomY, 75, 22);
+    velocitySlider.setBounds(75, bottomY, 170, 22);
+    sigBadge.setBounds(255, bottomY, 45, 22);
+    lengthSelector.setBounds(308, bottomY, 155, 22);
 
     if (masterDragBtn != nullptr) {
         masterDragBtn->setBounds(w - 240, bottomY, 225, 26);

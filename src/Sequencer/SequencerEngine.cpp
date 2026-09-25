@@ -23,6 +23,69 @@ void SequencerEngine::updateVoicing(const Harmonic::OrchestralVoicing& voicing) 
     currentVoicing = voicing;
 }
 
+void SequencerEngine::setPatternBarLength(int newBars) {
+    std::lock_guard<std::mutex> lock(patternMutex);
+    newBars = std::clamp(newBars, 1, 16);
+    activePattern.barLength = newBars;
+    int targetSteps = newBars * 16;
+
+    for (auto& [inst, trk] : activePattern.tracks) {
+        trk.stepCount = targetSteps;
+        int oldSize = (int)trk.steps.size();
+        if (oldSize < targetSteps) {
+            trk.steps.resize(targetSteps);
+            for (int s = oldSize; s < targetSteps; ++s) {
+                if (oldSize > 0) {
+                    trk.steps[s] = trk.steps[s % oldSize];
+                } else {
+                    trk.steps[s].active = false;
+                    trk.steps[s].action = Harmonic::StepActionType::Rest;
+                    trk.steps[s].lengthSteps = 1;
+                    trk.steps[s].velocity = 90;
+                    trk.steps[s].articulation = trk.articulation;
+                }
+            }
+        } else if (oldSize > targetSteps) {
+            trk.steps.resize(targetSteps);
+        }
+
+        int oldCc = (int)trk.cc1Curve.size();
+        if (oldCc < targetSteps) {
+            trk.cc1Curve.resize(targetSteps, 80);
+            for (int s = oldCc; s < targetSteps; ++s) {
+                if (oldCc > 0) trk.cc1Curve[s] = trk.cc1Curve[s % oldCc];
+            }
+        } else if (oldCc > targetSteps) {
+            trk.cc1Curve.resize(targetSteps);
+        }
+    }
+}
+
+int SequencerEngine::getPatternBarLength() const {
+    std::lock_guard<std::mutex> lock(patternMutex);
+    return activePattern.barLength;
+}
+
+int SequencerEngine::getTotalSteps() const {
+    std::lock_guard<std::mutex> lock(patternMutex);
+    return activePattern.getTotalSteps();
+}
+
+void SequencerEngine::copyBar1ToAllBars() {
+    std::lock_guard<std::mutex> lock(patternMutex);
+    for (auto& [inst, trk] : activePattern.tracks) {
+        int total = (int)trk.steps.size();
+        if (total <= 16) continue;
+        for (int s = 16; s < total; ++s) {
+            trk.steps[s] = trk.steps[s % 16];
+        }
+        int totalCc = (int)trk.cc1Curve.size();
+        for (int c = 16; c < totalCc; ++c) {
+            trk.cc1Curve[c] = trk.cc1Curve[c % 16];
+        }
+    }
+}
+
 TrackPattern& SequencerEngine::ensureTrackExistsLocked(Harmonic::InstrumentId inst) {
     auto it = activePattern.tracks.find(inst);
     if (it != activePattern.tracks.end()) {
@@ -40,11 +103,12 @@ TrackPattern& SequencerEngine::ensureTrackExistsLocked(Harmonic::InstrumentId in
     tp.pan = 0.0f;
     tp.isMuted = false;
     tp.isSolo = false;
-    tp.stepCount = 16;
+    int initialSteps = std::max(16, activePattern.barLength * 16);
+    tp.stepCount = initialSteps;
     tp.stepDivision = 0.25;
-    tp.cc1Curve = std::vector<int>(16, 75);
-    tp.steps.resize(16);
-    for (int i = 0; i < 16; ++i) {
+    tp.cc1Curve = std::vector<int>(initialSteps, 75);
+    tp.steps.resize(initialSteps);
+    for (int i = 0; i < initialSteps; ++i) {
         tp.steps[i].active = false;
         tp.steps[i].action = Harmonic::StepActionType::Rest;
         tp.steps[i].articulation = tp.articulation;
@@ -59,7 +123,21 @@ TrackPattern& SequencerEngine::ensureTrackExistsLocked(Harmonic::InstrumentId in
 void SequencerEngine::setTrackStep(Harmonic::InstrumentId inst, int stepIndex, bool active, int stepOffset, int velocity, Harmonic::ArticulationType art) {
     std::lock_guard<std::mutex> lock(patternMutex);
     auto& track = ensureTrackExistsLocked(inst);
-    if (stepIndex >= 0 && stepIndex < (int)track.steps.size()) {
+    if (stepIndex >= 0) {
+        if (stepIndex >= (int)track.steps.size()) {
+            int oldSize = (int)track.steps.size();
+            int newSize = stepIndex + 1;
+            track.steps.resize(newSize);
+            for (int s = oldSize; s < newSize; ++s) {
+                track.steps[s].active = false;
+                track.steps[s].action = Harmonic::StepActionType::Rest;
+                track.steps[s].lengthSteps = 1;
+                track.steps[s].velocity = 90;
+                track.steps[s].articulation = track.articulation;
+            }
+            track.stepCount = std::max(track.stepCount, newSize);
+            activePattern.barLength = std::max(activePattern.barLength, (newSize + 15) / 16);
+        }
         track.steps[stepIndex].active = active;
         track.steps[stepIndex].stepOffset = stepOffset;
         track.steps[stepIndex].extraOffsets.clear();
@@ -72,7 +150,21 @@ void SequencerEngine::setTrackStep(Harmonic::InstrumentId inst, int stepIndex, b
 void SequencerEngine::setTrackStepWithExtras(Harmonic::InstrumentId inst, int stepIndex, bool active, int stepOffset, const std::vector<int>& extraOffsets, int velocity, Harmonic::ArticulationType art) {
     std::lock_guard<std::mutex> lock(patternMutex);
     auto& track = ensureTrackExistsLocked(inst);
-    if (stepIndex >= 0 && stepIndex < (int)track.steps.size()) {
+    if (stepIndex >= 0) {
+        if (stepIndex >= (int)track.steps.size()) {
+            int oldSize = (int)track.steps.size();
+            int newSize = stepIndex + 1;
+            track.steps.resize(newSize);
+            for (int s = oldSize; s < newSize; ++s) {
+                track.steps[s].active = false;
+                track.steps[s].action = Harmonic::StepActionType::Rest;
+                track.steps[s].lengthSteps = 1;
+                track.steps[s].velocity = 90;
+                track.steps[s].articulation = track.articulation;
+            }
+            track.stepCount = std::max(track.stepCount, newSize);
+            activePattern.barLength = std::max(activePattern.barLength, (newSize + 15) / 16);
+        }
         track.steps[stepIndex].active = active;
         track.steps[stepIndex].stepOffset = stepOffset;
         track.steps[stepIndex].extraOffsets = extraOffsets;
@@ -85,7 +177,21 @@ void SequencerEngine::setTrackStepWithExtras(Harmonic::InstrumentId inst, int st
 void SequencerEngine::addTrackStepOffset(Harmonic::InstrumentId inst, int stepIndex, int offset, int velocity, Harmonic::ArticulationType art) {
     std::lock_guard<std::mutex> lock(patternMutex);
     auto& track = ensureTrackExistsLocked(inst);
-    if (stepIndex >= 0 && stepIndex < (int)track.steps.size()) {
+    if (stepIndex >= 0) {
+        if (stepIndex >= (int)track.steps.size()) {
+            int oldSize = (int)track.steps.size();
+            int newSize = stepIndex + 1;
+            track.steps.resize(newSize);
+            for (int s = oldSize; s < newSize; ++s) {
+                track.steps[s].active = false;
+                track.steps[s].action = Harmonic::StepActionType::Rest;
+                track.steps[s].lengthSteps = 1;
+                track.steps[s].velocity = 90;
+                track.steps[s].articulation = track.articulation;
+            }
+            track.stepCount = std::max(track.stepCount, newSize);
+            activePattern.barLength = std::max(activePattern.barLength, (newSize + 15) / 16);
+        }
         auto& stp = track.steps[stepIndex];
         if (!stp.active) {
             stp.active = true;
@@ -359,12 +465,7 @@ void SequencerEngine::processBlock(int numSamples,
     int patternSteps = 16;
     {
         std::lock_guard<std::mutex> lock(patternMutex);
-        if (activePattern.barLength > 1) {
-            patternSteps = activePattern.barLength * 16;
-        }
-        for (const auto& [inst, track] : activePattern.tracks) {
-            if ((int)track.stepCount > patternSteps) patternSteps = track.stepCount;
-        }
+        patternSteps = activePattern.getTotalSteps();
     }
     int step = static_cast<int>(std::floor(currentPpq / stepDivision)) % patternSteps;
     if (step < 0) step += patternSteps;

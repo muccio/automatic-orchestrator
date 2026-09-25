@@ -65,7 +65,8 @@ private:
 };
 
 // -------------------------------------------------------------
-// StepGridComponent: 18 Relative Pitches (+9 to -8) x 16 Steps
+// -------------------------------------------------------------
+// StepGridComponent: 18 Relative Pitches (+9 to -8) x Multi-Bar Steps
 // -------------------------------------------------------------
 class StepGridComponent : public juce::Component {
 public:
@@ -86,6 +87,23 @@ public:
 
     void refreshFromPattern(const Sequencer::OrchestralPattern& pattern);
 
+    void setBarView(int barView); // 0 = Show All Bars, 1 = Bar 1, 2 = Bar 2...
+    int getBarView() const { return currentBarView; }
+    int getTotalSteps() const { return totalSteps; }
+    int getNumBars() const { return std::max(1, (totalSteps + 15) / 16); }
+
+    void getVisibleStepRange(int& outStartStep, int& outNumSteps) const {
+        if (currentBarView <= 0) {
+            outStartStep = 0;
+            outNumSteps = std::max(16, totalSteps);
+        } else {
+            outStartStep = (currentBarView - 1) * 16;
+            outNumSteps = std::min(16, std::max(1, totalSteps - outStartStep));
+        }
+    }
+
+    std::function<void(int newBarView)> onBarViewChanged;
+
 private:
     AutomaticOrchestratorAudioProcessor& processor;
     Harmonic::InstrumentId activeInstrument = Harmonic::InstrumentId::Violins1;
@@ -93,6 +111,8 @@ private:
     int currentStep = -1;
     int currentTool = 0; // 0 = Pencil, 1 = Eraser
     int noteVelocity = 100;
+    int totalSteps = 16;
+    int currentBarView = 0; // 0 = All, 1 = Bar 1, 2 = Bar 2...
 
     // Note Resizing State
     bool isResizing = false;
@@ -101,8 +121,8 @@ private:
     float dragStartX = 0.0f;
 
     static constexpr int numPitchRows = 18; // +9 down to -8
-    static constexpr int numSteps = 16;
     static constexpr float labelWidth = 62.0f;
+    static constexpr float rulerHeight = 22.0f;
 
     int getPitchOffsetForRow(int row) const {
         // row 0 = +9, row 9 = 0 (Lowest), row 17 = -8
@@ -129,11 +149,24 @@ public:
 
     void setActiveInstrument(Harmonic::InstrumentId inst);
     void refreshFromPattern(const Sequencer::OrchestralPattern& pattern);
+    void setBarView(int barView);
+
+    void getVisibleStepRange(int& outStartStep, int& outNumSteps) const {
+        if (currentBarView <= 0) {
+            outStartStep = 0;
+            outNumSteps = std::max(16, totalSteps);
+        } else {
+            outStartStep = (currentBarView - 1) * 16;
+            outNumSteps = std::min(16, std::max(1, totalSteps - outStartStep));
+        }
+    }
 
 private:
     AutomaticOrchestratorAudioProcessor& processor;
     Harmonic::InstrumentId activeInstrument = Harmonic::InstrumentId::Violins1;
     std::vector<int> cc1Curve;
+    int totalSteps = 16;
+    int currentBarView = 0;
 
     void updateCc1At(float mouseX, float mouseY);
 };
@@ -201,7 +234,8 @@ private:
 // -------------------------------------------------------------
 class HollywoodOrchestratorEditor : public juce::AudioProcessorEditor,
                                    public juce::Timer,
-                                   public juce::DragAndDropContainer {
+                                   public juce::DragAndDropContainer,
+                                   public juce::FileDragAndDropTarget {
 public:
     explicit HollywoodOrchestratorEditor(AutomaticOrchestratorAudioProcessor& p);
     ~HollywoodOrchestratorEditor() override;
@@ -209,6 +243,9 @@ public:
     void paint(juce::Graphics& g) override;
     void resized() override;
     void timerCallback() override;
+
+    bool isInterestedInFileDrag(const juce::StringArray& files) override;
+    void filesDropped(const juce::StringArray& files, int x, int y) override;
 
 private:
     AutomaticOrchestratorAudioProcessor& audioProcessor;
@@ -224,6 +261,7 @@ private:
     juce::TextButton prevPresetBtn{"<"};
     juce::ComboBox presetSelector;
     juce::TextButton nextPresetBtn{">"};
+    juce::TextButton loadPresetBtn{"LOAD..."};
     juce::TextButton savePresetBtn{"SAVE"};
     juce::TextButton saveAsPresetBtn{"SAVE AS..."};
 
@@ -258,6 +296,13 @@ private:
     juce::Label voice1Btn{"VOICE 1"};
     juce::Label voice2Btn{"VOICE 2"};
     juce::Label activeInstrumentTitle;
+
+    // Bar Navigation & View Mode
+    juce::ComboBox barViewSelector;
+    juce::TextButton prevBarBtn{"◀"};
+    juce::TextButton nextBarBtn{"▶"};
+    juce::TextButton copyBarBtn{"Copy Bar 1 -> All"};
+
     juce::ComboBox noteGridBox;
     juce::TextButton pencilBtn{"Pencil"};
     juce::TextButton eraserBtn{"Eraser"};
@@ -273,7 +318,7 @@ private:
     juce::Label velocityLabel{"VELOCITY"};
     juce::Slider velocitySlider;
     juce::Label sigBadge{"4/4"};
-    juce::Label lengthBadge{"2 BARS"};
+    juce::ComboBox lengthSelector;
     std::unique_ptr<MidiDragComponent> masterDragBtn;
 
     void switchSection(Harmonic::OrchestralSection section);
@@ -283,6 +328,7 @@ private:
     void saveCurrentPreset();
     void saveAsNewPreset();
     void promptAddInstrument();
+    void loadPresetFile(const juce::File& file);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(HollywoodOrchestratorEditor)
 };

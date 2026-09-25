@@ -9,7 +9,8 @@ TEST_CASE(SequencerEngine, PatternModelDefaults) {
     ASSERT_TRUE(pattern.tracks.find(Harmonic::InstrumentId::Violins1) != pattern.tracks.end());
 
     const auto& vlnTrack = pattern.tracks[Harmonic::InstrumentId::Violins1];
-    ASSERT_EQ(vlnTrack.steps.size(), 16);
+    ASSERT_EQ(pattern.barLength, 2);
+    ASSERT_EQ(vlnTrack.steps.size(), 32);
     ASSERT_EQ(vlnTrack.steps[0].action, Harmonic::StepActionType::Ostinato);
     ASSERT_EQ(vlnTrack.steps[0].articulation, Harmonic::ArticulationType::Spiccato);
 }
@@ -96,4 +97,49 @@ TEST_CASE(SequencerEngine, PatternJsonSerialization) {
     ASSERT_EQ(restored.tracks[Harmonic::InstrumentId::Violins1].steps[0].lengthSteps, 3);
     ASSERT_TRUE(std::abs(restored.tracks[Harmonic::InstrumentId::Violins1].pan - 0.5f) < 0.001f);
 }
+
+TEST_CASE(SequencerEngine, MultiBarPatternAndControls) {
+    Sequencer::SequencerEngine seq;
+    auto pat = Sequencer::createActionOstinatoPattern();
+    seq.setPattern(pat);
+    ASSERT_EQ(seq.getPatternBarLength(), 2);
+    ASSERT_EQ(seq.getTotalSteps(), 32);
+
+    // Expand to 4 bars (64 steps)
+    seq.setPatternBarLength(4);
+    ASSERT_EQ(seq.getPatternBarLength(), 4);
+    ASSERT_EQ(seq.getTotalSteps(), 64);
+    auto p4 = seq.getPattern();
+    for (const auto& [inst, trk] : p4.tracks) {
+        ASSERT_EQ(trk.steps.size(), 64);
+        ASSERT_EQ(trk.cc1Curve.size(), 64);
+    }
+
+    // Set a note in bar 1 and test copyBar1ToAllBars
+    seq.setTrackStep(Harmonic::InstrumentId::Cellos, 0, true, 0, 80, Harmonic::ArticulationType::Staccato);
+    seq.setTrackStep(Harmonic::InstrumentId::Cellos, 4, true, 2, 85, Harmonic::ArticulationType::Staccato);
+    seq.copyBar1ToAllBars();
+
+    auto copiedPat = seq.getPattern();
+    const auto& cellos = copiedPat.tracks[Harmonic::InstrumentId::Cellos];
+    // Check Bar 2 (step 16, 20), Bar 3 (step 32, 36), Bar 4 (step 48, 52)
+    for (int b = 0; b < 4; ++b) {
+        int s0 = b * 16;
+        int s4 = b * 16 + 4;
+        ASSERT_TRUE(cellos.steps[s0].active);
+        ASSERT_EQ(cellos.steps[s0].articulation, Harmonic::ArticulationType::Staccato);
+        ASSERT_TRUE(cellos.steps[s4].active);
+        ASSERT_EQ(cellos.steps[s4].stepOffset, 2);
+    }
+
+    // Shrink to 1 bar (16 steps)
+    seq.setPatternBarLength(1);
+    ASSERT_EQ(seq.getPatternBarLength(), 1);
+    ASSERT_EQ(seq.getTotalSteps(), 16);
+    auto p1 = seq.getPattern();
+    for (const auto& [inst, trk] : p1.tracks) {
+        ASSERT_EQ(trk.steps.size(), 16);
+    }
+}
+
 

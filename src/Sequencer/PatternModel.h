@@ -46,6 +46,15 @@ struct OrchestralPattern {
     int barLength = 2; // 1, 2, or 4 bars
     std::map<Harmonic::InstrumentId, TrackPattern> tracks;
 
+    int getTotalSteps() const {
+        int steps = std::max(16, barLength * 16);
+        for (const auto& [inst, trk] : tracks) {
+            if ((int)trk.steps.size() > steps) steps = (int)trk.steps.size();
+            if (trk.stepCount > steps) steps = trk.stepCount;
+        }
+        return steps;
+    }
+
     // Serialization & Persistence
     std::string toJson() const;
     static OrchestralPattern fromJson(const std::string& jsonStr);

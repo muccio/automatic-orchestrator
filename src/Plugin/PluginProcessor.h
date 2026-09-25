@@ -53,6 +53,11 @@ public:
     void setStylePattern(const Sequencer::OrchestralPattern& pattern);
     const Sequencer::OrchestralPattern getCurrentPattern() const;
 
+    void setPatternBarLength(int newBars) { sequencerEngine.setPatternBarLength(newBars); }
+    int getPatternBarLength() const { return sequencerEngine.getPatternBarLength(); }
+    int getTotalSteps() const { return sequencerEngine.getTotalSteps(); }
+    void copyBar1ToAllBars() { sequencerEngine.copyBar1ToAllBars(); }
+
     // Interactive Arranger Track & Step Editing
     void setTrackStep(Harmonic::InstrumentId inst, int stepIndex, bool active, int stepOffset, int velocity, Harmonic::ArticulationType art) {
         sequencerEngine.setTrackStep(inst, stepIndex, active, stepOffset, velocity, art);
@@ -119,7 +124,7 @@ public:
     Harmonic::OrchestralVoicing getCurrentVoicing() const;
 
     // Export MIDI to temp path for Drag-and-Drop
-    std::string exportMidiForDrag(int numBars = 2,
+    std::string exportMidiForDrag(int numBars = 0,
                                   std::optional<Harmonic::InstrumentId> singleStem = std::nullopt);
 
     // Randomizer controls

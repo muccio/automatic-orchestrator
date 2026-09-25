@@ -31,6 +31,12 @@ public:
 
     void updateVoicing(const Harmonic::OrchestralVoicing& voicing);
 
+    // Multi-Bar Pattern Management
+    void setPatternBarLength(int newBars);
+    int getPatternBarLength() const;
+    int getTotalSteps() const;
+    void copyBar1ToAllBars();
+
     // Dynamic Track & Step Editing
     void setTrackStep(Harmonic::InstrumentId inst, int stepIndex, bool active, int stepOffset, int velocity, Harmonic::ArticulationType art);
     void setTrackStepWithExtras(Harmonic::InstrumentId inst, int stepIndex, bool active, int stepOffset, const std::vector<int>& extraOffsets, int velocity, Harmonic::ArticulationType art);
