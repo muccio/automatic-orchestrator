@@ -66,6 +66,8 @@ struct TonalAnalysisResult {
     float confidence = 0.0f; // 0.0 to 1.0
     std::vector<float> pitchClassDistribution; // 12 elements (C .. B)
     int referenceBassMidiNote = 36;
+    std::vector<int> detectedChordTones; // intervals from root, e.g. {0, 4, 7}
+    std::vector<int> detectedHarmonicPcs; // pitch classes, e.g. {0, 4, 7}
 };
 
 struct TrackMappingConfig {

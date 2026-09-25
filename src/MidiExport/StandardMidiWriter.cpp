@@ -143,31 +143,42 @@ void StandardMidiWriter::buildInstrumentTrack(std::vector<uint8_t>& trackBytes,
             workingBase = (voice.midiPitch / 12) * 12 + harmonic.rootPitchClass;
         }
 
-        int calculatedPitch = workingBase;
-        if (step.stepOffset != 0 && !chordPcs.empty()) {
-            std::vector<int> pitchLadder;
-            int startOctave = (workingBase / 12) - 2;
-            for (int oct = startOctave; oct <= startOctave + 5; ++oct) {
+        std::vector<int> allOffsets = { step.stepOffset };
+        for (int eo : step.extraOffsets) {
+            allOffsets.push_back(eo);
+        }
+
+        std::vector<int> pitchLadder;
+        if (!chordPcs.empty()) {
+            int startOctave = (workingBase / 12) - 3;
+            for (int oct = startOctave; oct <= startOctave + 6; ++oct) {
                 for (int pc : chordPcs) {
                     pitchLadder.push_back(oct * 12 + pc);
                 }
             }
             std::sort(pitchLadder.begin(), pitchLadder.end());
-            auto it = std::lower_bound(pitchLadder.begin(), pitchLadder.end(), workingBase);
-            int idx = static_cast<int>(std::distance(pitchLadder.begin(), it));
-            if (idx >= (int)pitchLadder.size()) idx = (int)pitchLadder.size() - 1;
-            int targetIdx = std::clamp(idx + step.stepOffset, 0, (int)pitchLadder.size() - 1);
-            calculatedPitch = pitchLadder[targetIdx];
+            pitchLadder.erase(std::unique(pitchLadder.begin(), pitchLadder.end()), pitchLadder.end());
         }
 
-        calculatedPitch += (trackPattern.octaveOffset * 12) + (step.octaveOffset * 12);
-        uint8_t pitch = static_cast<uint8_t>(std::clamp(calculatedPitch, 12, 127));
-        uint8_t vel = static_cast<uint8_t>(std::clamp(static_cast<int>(step.velocity * trackPattern.volume), 1, 127));
+        for (int offVal : allOffsets) {
+            int calculatedPitch = workingBase;
+            if (offVal != 0 && !pitchLadder.empty()) {
+                auto it = std::lower_bound(pitchLadder.begin(), pitchLadder.end(), workingBase);
+                int idx = static_cast<int>(std::distance(pitchLadder.begin(), it));
+                if (idx >= (int)pitchLadder.size()) idx = (int)pitchLadder.size() - 1;
+                int targetIdx = std::clamp(idx + offVal, 0, (int)pitchLadder.size() - 1);
+                calculatedPitch = pitchLadder[targetIdx];
+            }
 
-        // NoteOn
-        timeline.push_back({stepStartTick, static_cast<uint8_t>(0x90 | ch), pitch, vel, 3});
-        // NoteOff
-        timeline.push_back({stepEndTick, static_cast<uint8_t>(0x80 | ch), pitch, 0, 1});
+            calculatedPitch += (trackPattern.octaveOffset * 12) + (step.octaveOffset * 12);
+            uint8_t pitch = static_cast<uint8_t>(std::clamp(calculatedPitch, 12, 127));
+            uint8_t vel = static_cast<uint8_t>(std::clamp(static_cast<int>(step.velocity * trackPattern.volume), 1, 127));
+
+            // NoteOn
+            timeline.push_back({stepStartTick, static_cast<uint8_t>(0x90 | ch), pitch, vel, 3});
+            // NoteOff
+            timeline.push_back({stepEndTick, static_cast<uint8_t>(0x80 | ch), pitch, 0, 1});
+        }
     }
 
     std::sort(timeline.begin(), timeline.end(), [](const MidiTickEvent& a, const MidiTickEvent& b) {

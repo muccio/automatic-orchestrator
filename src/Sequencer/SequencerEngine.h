@@ -33,6 +33,9 @@ public:
 
     // Dynamic Track & Step Editing
     void setTrackStep(Harmonic::InstrumentId inst, int stepIndex, bool active, int stepOffset, int velocity, Harmonic::ArticulationType art);
+    void setTrackStepWithExtras(Harmonic::InstrumentId inst, int stepIndex, bool active, int stepOffset, const std::vector<int>& extraOffsets, int velocity, Harmonic::ArticulationType art);
+    void addTrackStepOffset(Harmonic::InstrumentId inst, int stepIndex, int offset, int velocity, Harmonic::ArticulationType art);
+    void removeTrackStepOffset(Harmonic::InstrumentId inst, int stepIndex, int offset);
     void setTrackStepLength(Harmonic::InstrumentId inst, int stepIndex, int lengthSteps);
     void setTrackArticulation(Harmonic::InstrumentId inst, Harmonic::ArticulationType art);
     void setTrackMode(Harmonic::InstrumentId inst, const std::string& mode);
@@ -72,9 +75,10 @@ private:
         bool active = false;
     };
 
-    std::map<Harmonic::InstrumentId, ActiveNoteState> activeNotes;
+    std::map<Harmonic::InstrumentId, std::vector<ActiveNoteState>> activeNotes;
     std::map<Harmonic::InstrumentId, int> arpIndex;
 
+    int computeRelativeStepPitch(Harmonic::InstrumentId inst, const TrackPattern& track, int stepOffset, int basePitch, int stepOctave = 0);
     int computeRelativeStepPitch(Harmonic::InstrumentId inst, const TrackPattern& track, const StepDefinition& stepDef, int basePitch);
     int computeArpPitch(Harmonic::InstrumentId inst, Harmonic::StepActionType action, int basePitch);
     TrackPattern& ensureTrackExistsLocked(Harmonic::InstrumentId inst);

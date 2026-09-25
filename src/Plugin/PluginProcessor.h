@@ -57,6 +57,12 @@ public:
     void setTrackStep(Harmonic::InstrumentId inst, int stepIndex, bool active, int stepOffset, int velocity, Harmonic::ArticulationType art) {
         sequencerEngine.setTrackStep(inst, stepIndex, active, stepOffset, velocity, art);
     }
+    void addTrackStepOffset(Harmonic::InstrumentId inst, int stepIndex, int offset, int velocity, Harmonic::ArticulationType art) {
+        sequencerEngine.addTrackStepOffset(inst, stepIndex, offset, velocity, art);
+    }
+    void removeTrackStepOffset(Harmonic::InstrumentId inst, int stepIndex, int offset) {
+        sequencerEngine.removeTrackStepOffset(inst, stepIndex, offset);
+    }
     void setTrackStepLength(Harmonic::InstrumentId inst, int stepIndex, int lengthSteps) {
         sequencerEngine.setTrackStepLength(inst, stepIndex, lengthSteps);
     }

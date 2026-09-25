@@ -574,8 +574,15 @@ std::string OrchestralPattern::toJson() const {
         for (size_t s = 0; s < trk.steps.size(); ++s) {
             const auto& stp = trk.steps[s];
             ss << "        {\"active\": " << (stp.active ? "true" : "false")
-               << ", \"stepOffset\": " << stp.stepOffset
-               << ", \"lengthSteps\": " << stp.lengthSteps
+               << ", \"stepOffset\": " << stp.stepOffset;
+            if (!stp.extraOffsets.empty()) {
+                ss << ", \"extraOffsets\": [";
+                for (size_t e = 0; e < stp.extraOffsets.size(); ++e) {
+                    ss << stp.extraOffsets[e] << (e + 1 < stp.extraOffsets.size() ? ", " : "");
+                }
+                ss << "]";
+            }
+            ss << ", \"lengthSteps\": " << stp.lengthSteps
                << ", \"velocity\": " << stp.velocity
                << ", \"gate\": " << stp.gate
                << ", \"octaveOffset\": " << stp.octaveOffset
@@ -640,6 +647,12 @@ OrchestralPattern OrchestralPattern::fromJson(const std::string& jsonStr) {
                     StepDefinition sd;
                     sd.active = sNode["active"].asBool(true);
                     sd.stepOffset = sNode["stepOffset"].asInt(0);
+                    const auto& extraArr = sNode["extraOffsets"];
+                    if (extraArr.type == SimpleJson::Array) {
+                        for (const auto& eo : extraArr.arr) {
+                            sd.extraOffsets.push_back(eo.asInt(0));
+                        }
+                    }
                     sd.lengthSteps = std::clamp(sNode["lengthSteps"].asInt(1), 1, 16);
                     sd.velocity = sNode["velocity"].asInt(90);
                     sd.gate = sNode["gate"].asDouble(0.85);

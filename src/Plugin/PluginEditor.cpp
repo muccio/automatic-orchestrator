@@ -296,23 +296,23 @@ void StepGridComponent::handleCellClick(int step, int row) {
     int targetOffset = getPitchOffsetForRow(row);
 
     if (currentTool == 1) { // Eraser
-        processor.setTrackStep(activeInstrument, step, false, targetOffset, 0, currentTrack.articulation);
+        processor.removeTrackStepOffset(activeInstrument, step, targetOffset);
     } else { // Pencil
         // Check if currently active at this offset
         bool isAlreadyActive = false;
         if (step < (int)currentTrack.steps.size()) {
             const auto& s = currentTrack.steps[step];
-            if (s.active && s.stepOffset == targetOffset) {
+            if (s.active && (s.stepOffset == targetOffset || std::find(s.extraOffsets.begin(), s.extraOffsets.end(), targetOffset) != s.extraOffsets.end())) {
                 isAlreadyActive = true;
             }
         }
 
         if (isAlreadyActive) {
             // Toggle off
-            processor.setTrackStep(activeInstrument, step, false, targetOffset, 0, currentTrack.articulation);
+            processor.removeTrackStepOffset(activeInstrument, step, targetOffset);
         } else {
-            // Set note at this step and pitch offset
-            processor.setTrackStep(activeInstrument, step, true, targetOffset, noteVelocity, currentTrack.articulation);
+            // Add note at this step and pitch offset
+            processor.addTrackStepOffset(activeInstrument, step, targetOffset, noteVelocity, currentTrack.articulation);
         }
     }
 
@@ -334,18 +334,24 @@ void StepGridComponent::mouseMove(const juce::MouseEvent& e) {
     for (size_t s = 0; s < currentTrack.steps.size() && s < (size_t)numSteps; ++s) {
         const auto& stepDef = currentTrack.steps[s];
         if (stepDef.active && stepDef.action != Harmonic::StepActionType::Rest) {
-            int row = getRowForPitchOffset(stepDef.stepOffset);
-            if (row >= 0 && row < numPitchRows) {
-                float startX = labelWidth + s * cellW;
-                int len = std::clamp(stepDef.lengthSteps, 1, 16 - (int)s);
-                float endX = startX + len * cellW;
-                float y = row * cellH;
+            std::vector<int> allOffsets = { stepDef.stepOffset };
+            for (int eo : stepDef.extraOffsets) allOffsets.push_back(eo);
 
-                if (e.x >= endX - 8.0f && e.x <= endX + 4.0f && e.y >= y && e.y <= y + cellH) {
-                    nearRightEdge = true;
-                    break;
+            for (int offVal : allOffsets) {
+                int row = getRowForPitchOffset(offVal);
+                if (row >= 0 && row < numPitchRows) {
+                    float startX = labelWidth + s * cellW;
+                    int len = std::clamp(stepDef.lengthSteps, 1, 16 - (int)s);
+                    float endX = startX + len * cellW;
+                    float y = row * cellH;
+
+                    if (e.x >= endX - 8.0f && e.x <= endX + 4.0f && e.y >= y && e.y <= y + cellH) {
+                        nearRightEdge = true;
+                        break;
+                    }
                 }
             }
+            if (nearRightEdge) break;
         }
     }
 
@@ -368,19 +374,24 @@ void StepGridComponent::mouseDown(const juce::MouseEvent& e) {
     for (size_t s = 0; s < currentTrack.steps.size() && s < (size_t)numSteps; ++s) {
         const auto& stepDef = currentTrack.steps[s];
         if (stepDef.active && stepDef.action != Harmonic::StepActionType::Rest) {
-            int row = getRowForPitchOffset(stepDef.stepOffset);
-            if (row >= 0 && row < numPitchRows) {
-                float startX = labelWidth + s * cellW;
-                int len = std::clamp(stepDef.lengthSteps, 1, 16 - (int)s);
-                float endX = startX + len * cellW;
-                float y = row * cellH;
+            std::vector<int> allOffsets = { stepDef.stepOffset };
+            for (int eo : stepDef.extraOffsets) allOffsets.push_back(eo);
 
-                if (e.x >= endX - 8.0f && e.x <= endX + 4.0f && e.y >= y && e.y <= y + cellH) {
-                    isResizing = true;
-                    resizeStep = (int)s;
-                    originalLength = len;
-                    dragStartX = startX;
-                    return;
+            for (int offVal : allOffsets) {
+                int row = getRowForPitchOffset(offVal);
+                if (row >= 0 && row < numPitchRows) {
+                    float startX = labelWidth + s * cellW;
+                    int len = std::clamp(stepDef.lengthSteps, 1, 16 - (int)s);
+                    float endX = startX + len * cellW;
+                    float y = row * cellH;
+
+                    if (e.x >= endX - 8.0f && e.x <= endX + 4.0f && e.y >= y && e.y <= y + cellH) {
+                        isResizing = true;
+                        resizeStep = (int)s;
+                        originalLength = len;
+                        dragStartX = startX;
+                        return;
+                    }
                 }
             }
         }
@@ -418,9 +429,9 @@ void StepGridComponent::mouseDrag(const juce::MouseEvent& e) {
     if (step >= 0 && step < numSteps && row >= 0 && row < numPitchRows) {
         int targetOffset = getPitchOffsetForRow(row);
         if (currentTool == 1) {
-            processor.setTrackStep(activeInstrument, step, false, targetOffset, 0, currentTrack.articulation);
+            processor.removeTrackStepOffset(activeInstrument, step, targetOffset);
         } else {
-            processor.setTrackStep(activeInstrument, step, true, targetOffset, noteVelocity, currentTrack.articulation);
+            processor.addTrackStepOffset(activeInstrument, step, targetOffset, noteVelocity, currentTrack.articulation);
         }
         refreshFromPattern(processor.getCurrentPattern());
     }
@@ -510,26 +521,31 @@ void StepGridComponent::paint(juce::Graphics& g) {
         for (size_t s = 0; s < trk.steps.size() && s < (size_t)numSteps; ++s) {
             const auto& sDef = trk.steps[s];
             if (sDef.active && sDef.action != Harmonic::StepActionType::Rest) {
-                int row = getRowForPitchOffset(sDef.stepOffset);
-                if (row >= 0 && row < numPitchRows) {
-                    float gx = labelWidth + s * cellW + 1.5f;
-                    float gy = row * cellH + 1.5f;
-                    int gLen = std::clamp(sDef.lengthSteps, 1, 16 - (int)s);
-                    float gBlockW = (gLen * cellW) - 3.0f;
-                    float gBlockH = cellH - 3.0f;
+                std::vector<int> allOffsets = { sDef.stepOffset };
+                for (int eo : sDef.extraOffsets) allOffsets.push_back(eo);
 
-                    // Translucent body
-                    g.setColour(ghostCol.withAlpha(0.24f));
-                    g.fillRoundedRectangle(gx, gy, gBlockW, gBlockH, 3.0f);
+                for (int offVal : allOffsets) {
+                    int row = getRowForPitchOffset(offVal);
+                    if (row >= 0 && row < numPitchRows) {
+                        float gx = labelWidth + s * cellW + 1.5f;
+                        float gy = row * cellH + 1.5f;
+                        int gLen = std::clamp(sDef.lengthSteps, 1, 16 - (int)s);
+                        float gBlockW = (gLen * cellW) - 3.0f;
+                        float gBlockH = cellH - 3.0f;
 
-                    // Translucent subtle outline
-                    g.setColour(ghostCol.withAlpha(0.50f));
-                    g.drawRoundedRectangle(gx, gy, gBlockW, gBlockH, 3.0f, 0.75f);
+                        // Translucent body
+                        g.setColour(ghostCol.withAlpha(0.24f));
+                        g.fillRoundedRectangle(gx, gy, gBlockW, gBlockH, 3.0f);
 
-                    // Instrument name badge in ghost note
-                    g.setFont(juce::Font(8.0f));
-                    g.setColour(ghostCol.withAlpha(0.75f));
-                    g.drawText(instShort, (int)gx + 3, (int)gy, (int)gBlockW - 6, (int)gBlockH, juce::Justification::centredLeft);
+                        // Translucent subtle outline
+                        g.setColour(ghostCol.withAlpha(0.50f));
+                        g.drawRoundedRectangle(gx, gy, gBlockW, gBlockH, 3.0f, 0.75f);
+
+                        // Instrument name badge in ghost note
+                        g.setFont(juce::Font(8.0f));
+                        g.setColour(ghostCol.withAlpha(0.75f));
+                        g.drawText(instShort, (int)gx + 3, (int)gy, (int)gBlockW - 6, (int)gBlockH, juce::Justification::centredLeft);
+                    }
                 }
             }
         }
@@ -543,32 +559,37 @@ void StepGridComponent::paint(juce::Graphics& g) {
     for (size_t s = 0; s < currentTrack.steps.size() && s < (size_t)numSteps; ++s) {
         const auto& stepDef = currentTrack.steps[s];
         if (stepDef.active && stepDef.action != Harmonic::StepActionType::Rest) {
-            int row = getRowForPitchOffset(stepDef.stepOffset);
-            if (row >= 0 && row < numPitchRows) {
-                float x = labelWidth + s * cellW + 1.5f;
-                float y = row * cellH + 1.5f;
-                int len = std::clamp(stepDef.lengthSteps, 1, 16 - (int)s);
-                float blockW = (len * cellW) - 3.0f;
-                float blockH = cellH - 3.0f;
+            std::vector<int> allOffsets = { stepDef.stepOffset };
+            for (int eo : stepDef.extraOffsets) allOffsets.push_back(eo);
 
-                // Glowing note block
-                g.setColour(activeColor.withAlpha(0.92f));
-                g.fillRoundedRectangle(x, y, blockW, blockH, 3.0f);
+            for (int offVal : allOffsets) {
+                int row = getRowForPitchOffset(offVal);
+                if (row >= 0 && row < numPitchRows) {
+                    float x = labelWidth + s * cellW + 1.5f;
+                    float y = row * cellH + 1.5f;
+                    int len = std::clamp(stepDef.lengthSteps, 1, 16 - (int)s);
+                    float blockW = (len * cellW) - 3.0f;
+                    float blockH = cellH - 3.0f;
 
-                g.setColour(juce::Colours::white);
-                g.drawRoundedRectangle(x, y, blockW, blockH, 3.0f, 1.2f);
+                    // Glowing note block
+                    g.setColour(activeColor.withAlpha(0.92f));
+                    g.fillRoundedRectangle(x, y, blockW, blockH, 3.0f);
 
-                // Right-edge resize grip handle
-                float gripX = x + blockW - 5.0f;
-                g.setColour(juce::Colours::white.withAlpha(0.85f));
-                g.drawLine(gripX, y + 3.0f, gripX, y + blockH - 3.0f, 1.5f);
-                g.drawLine(gripX + 2.0f, y + 4.0f, gripX + 2.0f, y + blockH - 4.0f, 1.0f);
+                    g.setColour(juce::Colours::white);
+                    g.drawRoundedRectangle(x, y, blockW, blockH, 3.0f, 1.2f);
 
-                // Pitch offset label
-                juce::String txt = stepDef.stepOffset > 0 ? "+" + juce::String(stepDef.stepOffset) : (stepDef.stepOffset == 0 ? "0" : juce::String(stepDef.stepOffset));
-                g.setFont(juce::Font(9.0f, juce::Font::bold));
-                g.setColour(juce::Colours::white);
-                g.drawText(txt, (int)x + 3, (int)y, 22, (int)blockH, juce::Justification::centredLeft);
+                    // Right-edge resize grip handle
+                    float gripX = x + blockW - 5.0f;
+                    g.setColour(juce::Colours::white.withAlpha(0.85f));
+                    g.drawLine(gripX, y + 3.0f, gripX, y + blockH - 3.0f, 1.5f);
+                    g.drawLine(gripX + 2.0f, y + 4.0f, gripX + 2.0f, y + blockH - 4.0f, 1.0f);
+
+                    // Pitch offset label
+                    juce::String txt = offVal > 0 ? "+" + juce::String(offVal) : (offVal == 0 ? "0" : juce::String(offVal));
+                    g.setFont(juce::Font(9.0f, juce::Font::bold));
+                    g.setColour(juce::Colours::white);
+                    g.drawText(txt, (int)x + 3, (int)y, 22, (int)blockH, juce::Justification::centredLeft);
+                }
             }
         }
     }

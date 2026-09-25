@@ -431,10 +431,12 @@ TonalAnalysisResult MidiPresetConverter::analyzeTonalCenter(const ParsedMidiFile
         result.detectedMode = Harmonic::ScaleMode::Ionian;
         result.detectedChordQuality = Harmonic::ChordQuality::MajorTriad;
         result.detectedChordName = std::string(PITCH_NAMES[bestRoot]) + " Major";
+        result.detectedChordTones = {0, 4, 7};
     } else {
         result.detectedMode = Harmonic::ScaleMode::Aeolian;
         result.detectedChordQuality = Harmonic::ChordQuality::MinorTriad;
         result.detectedChordName = std::string(PITCH_NAMES[bestRoot]) + " Minor";
+        result.detectedChordTones = {0, 3, 7};
     }
 
     // Direct Bar 1 Chord Detection confirmation
@@ -447,8 +449,20 @@ TonalAnalysisResult MidiPresetConverter::analyzeTonalCenter(const ParsedMidiFile
             result.detectedChordName = chordFrame.chordName;
             result.detectedRootPitchClass = chordFrame.rootPitchClass;
             result.detectedRootName = PITCH_NAMES[chordFrame.rootPitchClass];
+            result.detectedChordTones = chordFrame.chordTones;
         }
     }
+
+    if (result.detectedChordTones.empty()) {
+        result.detectedChordTones = bestIsMajor ? std::vector<int>{0, 4, 7} : std::vector<int>{0, 3, 7};
+    }
+
+    result.detectedHarmonicPcs.clear();
+    for (int interval : result.detectedChordTones) {
+        result.detectedHarmonicPcs.push_back((result.detectedRootPitchClass + interval) % 12);
+    }
+    std::sort(result.detectedHarmonicPcs.begin(), result.detectedHarmonicPcs.end());
+    result.detectedHarmonicPcs.erase(std::unique(result.detectedHarmonicPcs.begin(), result.detectedHarmonicPcs.end()), result.detectedHarmonicPcs.end());
 
     return result;
 }
@@ -592,29 +606,46 @@ Harmonic::ArticulationType MidiPresetConverter::detectArticulation(const ParsedM
 }
 
 int MidiPresetConverter::pitchToScaleDegreeOffset(int midiPitch, int rootMidiNote, Harmonic::ScaleMode mode) {
-    int semitoneDiff = midiPitch - rootMidiNote;
-    int octaves = semitoneDiff / 12;
-    int pcDiff = semitoneDiff % 12;
-    if (pcDiff < 0) {
-        pcDiff += 12;
-        octaves -= 1;
+    int rootPc = ((rootMidiNote % 12) + 12) % 12;
+    bool isMinor = (mode == Harmonic::ScaleMode::Aeolian ||
+                    mode == Harmonic::ScaleMode::Dorian ||
+                    mode == Harmonic::ScaleMode::Phrygian ||
+                    mode == Harmonic::ScaleMode::HarmonicMinor ||
+                    mode == Harmonic::ScaleMode::MelodicMinor);
+    std::vector<int> chordPcs = isMinor ? std::vector<int>{rootPc, (rootPc + 3) % 12, (rootPc + 7) % 12}
+                                        : std::vector<int>{rootPc, (rootPc + 4) % 12, (rootPc + 7) % 12};
+    std::sort(chordPcs.begin(), chordPcs.end());
+
+    std::vector<int> pitchLadder;
+    for (int oct = 1; oct <= 9; ++oct) {
+        for (int pc : chordPcs) {
+            pitchLadder.push_back(oct * 12 + pc);
+        }
     }
+    std::sort(pitchLadder.begin(), pitchLadder.end());
+    pitchLadder.erase(std::unique(pitchLadder.begin(), pitchLadder.end()), pitchLadder.end());
 
-    // Map 12 semitones to standard diatonic degrees (0, 1, 2, 3, 4, 5, 6)
-    auto intervals = Harmonic::getScaleModeIntervals(mode);
-    int closestDegree = 0;
-    int minDistance = 99;
-
-    for (size_t d = 0; d < intervals.size(); ++d) {
-        int dist = std::abs(intervals[d] - pcDiff);
-        if (dist < minDistance) {
-            minDistance = dist;
-            closestDegree = static_cast<int>(d);
+    int baseIdx = 0;
+    int minBaseDiff = 999;
+    for (int i = 0; i < (int)pitchLadder.size(); ++i) {
+        int diff = std::abs(pitchLadder[i] - rootMidiNote);
+        if (diff < minBaseDiff) {
+            minBaseDiff = diff;
+            baseIdx = i;
         }
     }
 
-    int degreeOffset = octaves * 7 + closestDegree;
-    return std::clamp(degreeOffset, -8, 9);
+    int noteIdx = 0;
+    int minNoteDiff = 999;
+    for (int i = 0; i < (int)pitchLadder.size(); ++i) {
+        int diff = std::abs(pitchLadder[i] - midiPitch);
+        if (diff < minNoteDiff) {
+            minNoteDiff = diff;
+            noteIdx = i;
+        }
+    }
+
+    return std::clamp(noteIdx - baseIdx, -8, 9);
 }
 
 Sequencer::OrchestralPattern MidiPresetConverter::convertToPattern(const ParsedMidiFile& midiData,
@@ -627,16 +658,69 @@ Sequencer::OrchestralPattern MidiPresetConverter::convertToPattern(const ParsedM
     pattern.barLength = (numSteps >= 32) ? 2 : 1;
 
     int rootPc = (options.overrideRootPitchClass >= 0) ? options.overrideRootPitchClass : tonalResult.detectedRootPitchClass;
-    Harmonic::ScaleMode scaleMode = options.useOverrideMode ? options.overrideMode : tonalResult.detectedMode;
+    rootPc = ((rootPc % 12) + 12) % 12;
 
-    // Establish canonical reference root pitch in octave 3 (MIDI note 48 + rootPc)
-    int referenceRootMidi = 48 + rootPc;
+    // Determine the pitch classes of the identified base harmony
+    std::vector<int> chordPcs;
+    if (options.useOverrideMode) {
+        bool isMinor = (options.overrideMode == Harmonic::ScaleMode::Aeolian ||
+                        options.overrideMode == Harmonic::ScaleMode::Dorian ||
+                        options.overrideMode == Harmonic::ScaleMode::Phrygian ||
+                        options.overrideMode == Harmonic::ScaleMode::HarmonicMinor ||
+                        options.overrideMode == Harmonic::ScaleMode::MelodicMinor);
+        std::vector<int> triTones = isMinor ? std::vector<int>{0, 3, 7} : std::vector<int>{0, 4, 7};
+        for (int interval : triTones) {
+            chordPcs.push_back((rootPc + interval) % 12);
+        }
+    } else if (!tonalResult.detectedHarmonicPcs.empty()) {
+        chordPcs = tonalResult.detectedHarmonicPcs;
+    } else {
+        bool isMinor = (tonalResult.detectedMode == Harmonic::ScaleMode::Aeolian ||
+                        tonalResult.detectedChordQuality == Harmonic::ChordQuality::MinorTriad);
+        std::vector<int> triTones = isMinor ? std::vector<int>{0, 3, 7} : std::vector<int>{0, 4, 7};
+        for (int interval : triTones) {
+            chordPcs.push_back((rootPc + interval) % 12);
+        }
+    }
+    std::sort(chordPcs.begin(), chordPcs.end());
+    chordPcs.erase(std::unique(chordPcs.begin(), chordPcs.end()), chordPcs.end());
+    if (chordPcs.empty()) {
+        chordPcs = {rootPc, (rootPc + 4) % 12, (rootPc + 7) % 12};
+    }
+
+    // Build the harmony pitch ladder (all chord tones from MIDI 12 to 127)
+    std::vector<int> pitchLadder;
+    for (int oct = 1; oct <= 9; ++oct) {
+        for (int pc : chordPcs) {
+            int p = oct * 12 + pc;
+            if (p >= 12 && p <= 127) {
+                pitchLadder.push_back(p);
+            }
+        }
+    }
+    std::sort(pitchLadder.begin(), pitchLadder.end());
+    pitchLadder.erase(std::unique(pitchLadder.begin(), pitchLadder.end()), pitchLadder.end());
+
+    auto findLadderIndex = [&](int pitch) -> int {
+        int bestIdx = 0;
+        int minDiff = 999;
+        for (int i = 0; i < (int)pitchLadder.size(); ++i) {
+            int diff = std::abs(pitchLadder[i] - pitch);
+            if (diff < minDiff) {
+                minDiff = diff;
+                bestIdx = i;
+            }
+        }
+        return bestIdx;
+    };
 
     int ticksPer16th = std::max(1, midiData.ticksPerQuarter / 4);
     int64_t maxPatternTicks = static_cast<int64_t>(numSteps) * ticksPer16th;
 
+    // Track instruments assigned in MIDI data
+    std::map<Harmonic::InstrumentId, bool> assignedInstruments;
+
     for (const auto& track : midiData.tracks) {
-        // Check if track is enabled in configuration
         bool isEnabled = track.isEnabled;
         TrackMappingConfig config;
         config.instrument = track.suggestedInstrument;
@@ -655,6 +739,8 @@ Sequencer::OrchestralPattern MidiPresetConverter::convertToPattern(const ParsedM
             continue;
         }
 
+        assignedInstruments[config.instrument] = true;
+
         // Initialize track pattern
         Sequencer::TrackPattern trackPattern;
         trackPattern.instrument = config.instrument;
@@ -672,28 +758,109 @@ Sequencer::OrchestralPattern MidiPresetConverter::convertToPattern(const ParsedM
         for (int s = 0; s < numSteps; ++s) {
             trackPattern.steps[s].active = false;
             trackPattern.steps[s].stepOffset = 0;
+            trackPattern.steps[s].extraOffsets.clear();
             trackPattern.steps[s].velocity = 100;
             trackPattern.steps[s].lengthSteps = 1;
             trackPattern.steps[s].action = Harmonic::StepActionType::Rest;
         }
 
-        // Map notes into steps
+        // Determine workingBase according to track register and arrangerMode
+        int workingBase = 60;
+        if (config.arrangerMode == "Lowest") {
+            int refPitch = (track.minPitch > 0 && track.minPitch < 127) ? track.minPitch : ((track.averagePitch > 0) ? track.averagePitch : track.notes.front().pitch);
+            int targetOctave = std::clamp(refPitch / 12, 1, 8);
+            workingBase = (targetOctave * 12) + chordPcs.front();
+            if (workingBase > refPitch) workingBase -= 12;
+        } else if (config.arrangerMode == "Top") {
+            int refPitch = (track.maxPitch > 0) ? track.maxPitch : ((track.averagePitch > 0) ? track.averagePitch : track.notes.front().pitch);
+            int targetOctave = std::clamp(refPitch / 12, 1, 8);
+            workingBase = (targetOctave * 12) + chordPcs.back();
+            if (workingBase < refPitch) workingBase += 12;
+        } else if (config.arrangerMode == "Root") {
+            int refPitch = (track.minPitch > 0 && track.minPitch < 127) ? track.minPitch : ((track.averagePitch > 0) ? track.averagePitch : track.notes.front().pitch);
+            int targetOctave = std::clamp(refPitch / 12, 1, 8);
+            workingBase = (targetOctave * 12) + rootPc;
+            if (workingBase > refPitch) workingBase -= 12;
+        } else {
+            // "Chord" or others: pick chord tone closest to track's lowest/register pitch
+            int refPitch = (track.minPitch > 0 && track.minPitch < 127) ? track.minPitch : ((track.averagePitch > 0) ? track.averagePitch : track.notes.front().pitch);
+            int targetOctave = std::clamp(refPitch / 12, 1, 8);
+            int bestDist = 999;
+            for (int oct = targetOctave - 1; oct <= targetOctave + 1; ++oct) {
+                for (int pc : chordPcs) {
+                    int cand = oct * 12 + pc;
+                    if (std::abs(cand - refPitch) < bestDist) {
+                        bestDist = std::abs(cand - refPitch);
+                        workingBase = cand;
+                    }
+                }
+            }
+        }
+
+        int baseIdx = findLadderIndex(workingBase);
+
+        // Group notes by 16th step to detect dyads, triads, and polyphony
+        std::map<int, std::vector<MidiNoteEvent>> stepNotes;
         for (const auto& n : track.notes) {
             if (n.startTick >= maxPatternTicks) continue;
-
             int step = static_cast<int>(std::round(static_cast<double>(n.startTick) / ticksPer16th));
-            if (step < 0 || step >= numSteps) continue;
+            if (step >= 0 && step < numSteps) {
+                stepNotes[step].push_back(n);
+            }
+        }
 
-            int durSteps = static_cast<int>(std::round(static_cast<double>(n.durationTicks) / ticksPer16th));
-            durSteps = std::clamp(durSteps, 1, numSteps - step);
+        // Populate steps with exact degree offsets for single notes, dyads, and triads
+        for (int s = 0; s < numSteps; ++s) {
+            if (stepNotes.find(s) == stepNotes.end() || stepNotes[s].empty()) {
+                continue;
+            }
 
-            int offset = pitchToScaleDegreeOffset(n.pitch, referenceRootMidi, scaleMode);
+            auto& nList = stepNotes[s];
 
-            trackPattern.steps[step].active = true;
-            trackPattern.steps[step].stepOffset = offset;
-            trackPattern.steps[step].velocity = n.velocity;
-            trackPattern.steps[step].lengthSteps = durSteps;
-            trackPattern.steps[step].action = (durSteps > 1) ? Harmonic::StepActionType::Sustain : Harmonic::StepActionType::Ostinato;
+            // Sort ascending by pitch
+            std::sort(nList.begin(), nList.end(), [](const MidiNoteEvent& a, const MidiNoteEvent& b) {
+                return a.pitch < b.pitch;
+            });
+
+            // Erase duplicates with identical pitch
+            nList.erase(std::unique(nList.begin(), nList.end(), [](const MidiNoteEvent& a, const MidiNoteEvent& b) {
+                return a.pitch == b.pitch;
+            }), nList.end());
+
+            // Calculate degree offset in base harmony pitch ladder for EVERY note in dyad/triad
+            std::vector<int> offsets;
+            for (const auto& ne : nList) {
+                int noteIdx = findLadderIndex(ne.pitch);
+                int off = std::clamp(noteIdx - baseIdx, -8, 9);
+                offsets.push_back(off);
+            }
+            offsets.erase(std::unique(offsets.begin(), offsets.end()), offsets.end());
+
+            const auto& primaryNote = (config.arrangerMode == "Top") ? nList.back() : nList.front();
+            int durSteps = static_cast<int>(std::round(static_cast<double>(primaryNote.durationTicks) / ticksPer16th));
+            durSteps = std::clamp(durSteps, 1, numSteps - s);
+
+            int maxVel = 0;
+            for (const auto& ne : nList) maxVel = std::max(maxVel, ne.velocity);
+
+            trackPattern.steps[s].active = true;
+            if (config.arrangerMode == "Top") {
+                trackPattern.steps[s].stepOffset = offsets.back();
+                trackPattern.steps[s].extraOffsets.clear();
+                for (int i = static_cast<int>(offsets.size()) - 2; i >= 0; --i) {
+                    trackPattern.steps[s].extraOffsets.push_back(offsets[i]);
+                }
+            } else {
+                trackPattern.steps[s].stepOffset = offsets.front();
+                trackPattern.steps[s].extraOffsets.clear();
+                for (size_t i = 1; i < offsets.size(); ++i) {
+                    trackPattern.steps[s].extraOffsets.push_back(offsets[i]);
+                }
+            }
+            trackPattern.steps[s].velocity = std::clamp(maxVel, 1, 127);
+            trackPattern.steps[s].lengthSteps = durSteps;
+            trackPattern.steps[s].gate = std::clamp(static_cast<double>(primaryNote.durationTicks) / (durSteps * ticksPer16th), 0.5, 0.95);
+            trackPattern.steps[s].action = (durSteps > 1) ? Harmonic::StepActionType::Sustain : Harmonic::StepActionType::Ostinato;
         }
 
         // Sample CC1 (Modulation) curve across steps
@@ -708,6 +875,38 @@ Sequencer::OrchestralPattern MidiPresetConverter::convertToPattern(const ParsedM
         }
 
         pattern.tracks[config.instrument] = trackPattern;
+    }
+
+    // Divisi / Polyphonic section distribution:
+    // If Violins 1 has polyphony (dyads/triads) and Violins 2 is unassigned in MIDI,
+    // populate Violins 2 with the second voice for lush orchestral voicing!
+    if (pattern.tracks.find(Harmonic::InstrumentId::Violins1) != pattern.tracks.end() &&
+        pattern.tracks.find(Harmonic::InstrumentId::Violins2) == pattern.tracks.end() &&
+        !assignedInstruments[Harmonic::InstrumentId::Violins2]) {
+
+        const auto& v1 = pattern.tracks[Harmonic::InstrumentId::Violins1];
+        bool hasPolyphony = false;
+        for (const auto& stp : v1.steps) {
+            if (!stp.extraOffsets.empty()) { hasPolyphony = true; break; }
+        }
+
+        if (hasPolyphony) {
+            Sequencer::TrackPattern v2 = v1;
+            v2.instrument = Harmonic::InstrumentId::Violins2;
+            v2.trackName = "Violins 2 (Divisi)";
+            v2.midiChannel = Harmonic::getDefaultInstrumentChannel(Harmonic::InstrumentId::Violins2);
+            for (size_t s = 0; s < v2.steps.size(); ++s) {
+                if (v2.steps[s].active && !v1.steps[s].extraOffsets.empty()) {
+                    v2.steps[s].stepOffset = v1.steps[s].extraOffsets.front();
+                    v2.steps[s].extraOffsets.clear();
+                } else if (v2.steps[s].active) {
+                    // Counter-voice a 3rd/4th below or unison
+                    v2.steps[s].stepOffset = std::clamp(v1.steps[s].stepOffset - 1, -8, 9);
+                    v2.steps[s].extraOffsets.clear();
+                }
+            }
+            pattern.tracks[Harmonic::InstrumentId::Violins2] = v2;
+        }
     }
 
     return pattern;

@@ -16,6 +16,7 @@ struct StepDefinition {
     int octaveOffset = 0; // -2 to +2 octaves
     Harmonic::StepActionType action = Harmonic::StepActionType::Ostinato;
     Harmonic::ArticulationType articulation = Harmonic::ArticulationType::Spiccato;
+    std::vector<int> extraOffsets; // Additional pitch offsets for polyphony (dyads / triads)
 };
 
 struct TrackPattern {

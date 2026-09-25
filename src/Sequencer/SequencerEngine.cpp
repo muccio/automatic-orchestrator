@@ -62,9 +62,65 @@ void SequencerEngine::setTrackStep(Harmonic::InstrumentId inst, int stepIndex, b
     if (stepIndex >= 0 && stepIndex < (int)track.steps.size()) {
         track.steps[stepIndex].active = active;
         track.steps[stepIndex].stepOffset = stepOffset;
+        track.steps[stepIndex].extraOffsets.clear();
         track.steps[stepIndex].velocity = std::clamp(velocity, 1, 127);
         track.steps[stepIndex].articulation = art;
         track.steps[stepIndex].action = active ? Harmonic::StepActionType::Ostinato : Harmonic::StepActionType::Rest;
+    }
+}
+
+void SequencerEngine::setTrackStepWithExtras(Harmonic::InstrumentId inst, int stepIndex, bool active, int stepOffset, const std::vector<int>& extraOffsets, int velocity, Harmonic::ArticulationType art) {
+    std::lock_guard<std::mutex> lock(patternMutex);
+    auto& track = ensureTrackExistsLocked(inst);
+    if (stepIndex >= 0 && stepIndex < (int)track.steps.size()) {
+        track.steps[stepIndex].active = active;
+        track.steps[stepIndex].stepOffset = stepOffset;
+        track.steps[stepIndex].extraOffsets = extraOffsets;
+        track.steps[stepIndex].velocity = std::clamp(velocity, 1, 127);
+        track.steps[stepIndex].articulation = art;
+        track.steps[stepIndex].action = active ? Harmonic::StepActionType::Ostinato : Harmonic::StepActionType::Rest;
+    }
+}
+
+void SequencerEngine::addTrackStepOffset(Harmonic::InstrumentId inst, int stepIndex, int offset, int velocity, Harmonic::ArticulationType art) {
+    std::lock_guard<std::mutex> lock(patternMutex);
+    auto& track = ensureTrackExistsLocked(inst);
+    if (stepIndex >= 0 && stepIndex < (int)track.steps.size()) {
+        auto& stp = track.steps[stepIndex];
+        if (!stp.active) {
+            stp.active = true;
+            stp.stepOffset = offset;
+            stp.extraOffsets.clear();
+        } else {
+            if (stp.stepOffset != offset && std::find(stp.extraOffsets.begin(), stp.extraOffsets.end(), offset) == stp.extraOffsets.end()) {
+                stp.extraOffsets.push_back(offset);
+            }
+        }
+        stp.velocity = std::clamp(velocity, 1, 127);
+        stp.articulation = art;
+        stp.action = Harmonic::StepActionType::Ostinato;
+    }
+}
+
+void SequencerEngine::removeTrackStepOffset(Harmonic::InstrumentId inst, int stepIndex, int offset) {
+    std::lock_guard<std::mutex> lock(patternMutex);
+    auto& track = ensureTrackExistsLocked(inst);
+    if (stepIndex >= 0 && stepIndex < (int)track.steps.size()) {
+        auto& stp = track.steps[stepIndex];
+        if (stp.stepOffset == offset) {
+            if (!stp.extraOffsets.empty()) {
+                stp.stepOffset = stp.extraOffsets.front();
+                stp.extraOffsets.erase(stp.extraOffsets.begin());
+            } else {
+                stp.active = false;
+                stp.action = Harmonic::StepActionType::Rest;
+            }
+        } else {
+            auto it = std::find(stp.extraOffsets.begin(), stp.extraOffsets.end(), offset);
+            if (it != stp.extraOffsets.end()) {
+                stp.extraOffsets.erase(it);
+            }
+        }
     }
 }
 
@@ -145,8 +201,9 @@ void SequencerEngine::removeTrack(Harmonic::InstrumentId inst) {
 
 int SequencerEngine::computeRelativeStepPitch(Harmonic::InstrumentId inst,
                                              const TrackPattern& track,
-                                             const StepDefinition& stepDef,
-                                             int basePitch) {
+                                             int stepOffset,
+                                             int basePitch,
+                                             int stepOctave) {
     // Collect unique pitch classes from current harmonic frame
     std::vector<int> chordPcs;
     for (int p : currentVoicing.sourceHarmonic.pitches) {
@@ -179,19 +236,20 @@ int SequencerEngine::computeRelativeStepPitch(Harmonic::InstrumentId inst,
     }
 
     // Now apply stepOffset relative to chord tones
-    int offset = stepDef.stepOffset;
+    int offset = stepOffset;
     int calculatedPitch = workingBase;
 
     if (offset != 0 && !chordPcs.empty()) {
-        // Build ladder of chord pitches from workingBase - 24 to workingBase + 24
+        // Build ladder of chord pitches covering full register
         std::vector<int> pitchLadder;
-        int startOctave = (workingBase / 12) - 2;
-        for (int oct = startOctave; oct <= startOctave + 5; ++oct) {
+        int startOctave = (workingBase / 12) - 3;
+        for (int oct = startOctave; oct <= startOctave + 6; ++oct) {
             for (int pc : chordPcs) {
                 pitchLadder.push_back(oct * 12 + pc);
             }
         }
         std::sort(pitchLadder.begin(), pitchLadder.end());
+        pitchLadder.erase(std::unique(pitchLadder.begin(), pitchLadder.end()), pitchLadder.end());
 
         // Find closest element in ladder to workingBase
         auto it = std::lower_bound(pitchLadder.begin(), pitchLadder.end(), workingBase);
@@ -203,8 +261,15 @@ int SequencerEngine::computeRelativeStepPitch(Harmonic::InstrumentId inst,
     }
 
     // Add track octave and step octave
-    calculatedPitch += (track.octaveOffset * 12) + (stepDef.octaveOffset * 12);
+    calculatedPitch += (track.octaveOffset * 12) + (stepOctave * 12);
     return std::clamp(calculatedPitch, 12, 127);
+}
+
+int SequencerEngine::computeRelativeStepPitch(Harmonic::InstrumentId inst,
+                                             const TrackPattern& track,
+                                             const StepDefinition& stepDef,
+                                             int basePitch) {
+    return computeRelativeStepPitch(inst, track, stepDef.stepOffset, basePitch, stepDef.octaveOffset);
 }
 
 int SequencerEngine::computeArpPitch(Harmonic::InstrumentId inst, Harmonic::StepActionType action, int basePitch) {
@@ -225,18 +290,21 @@ int SequencerEngine::computeArpPitch(Harmonic::InstrumentId inst, Harmonic::Step
 }
 
 void SequencerEngine::stopAllNotes(std::vector<ScheduledMidiEvent>& outEvents) {
-    for (auto& [inst, state] : activeNotes) {
-        if (state.active) {
-            ScheduledMidiEvent off;
-            off.sampleOffset = 0;
-            off.channel = state.channel;
-            off.pitch = state.pitch;
-            off.velocity = 0;
-            off.isNoteOn = false;
-            off.instrument = inst;
-            outEvents.push_back(off);
-            state.active = false;
+    for (auto& [inst, states] : activeNotes) {
+        for (auto& state : states) {
+            if (state.active) {
+                ScheduledMidiEvent off;
+                off.sampleOffset = 0;
+                off.channel = state.channel;
+                off.pitch = state.pitch;
+                off.velocity = 0;
+                off.isNoteOn = false;
+                off.instrument = inst;
+                outEvents.push_back(off);
+                state.active = false;
+            }
         }
+        states.clear();
     }
 }
 
@@ -253,21 +321,25 @@ void SequencerEngine::processBlock(int numSamples,
     double currentPpq = isHostPlaying ? hostPpqPosition : internalPpq;
 
     // Advance active note durations and emit NoteOffs if expired
-    for (auto& [inst, state] : activeNotes) {
-        if (state.active) {
-            if (state.remainingSamples <= numSamples) {
-                ScheduledMidiEvent off;
-                off.sampleOffset = std::max(0, state.remainingSamples);
-                off.channel = state.channel;
-                off.pitch = state.pitch;
-                off.velocity = 0;
-                off.isNoteOn = false;
-                off.instrument = inst;
-                outEvents.push_back(off);
-                state.active = false;
-            } else {
-                state.remainingSamples -= numSamples;
+    for (auto& [inst, states] : activeNotes) {
+        for (auto it = states.begin(); it != states.end(); ) {
+            if (it->active) {
+                if (it->remainingSamples <= numSamples) {
+                    ScheduledMidiEvent off;
+                    off.sampleOffset = std::max(0, it->remainingSamples);
+                    off.channel = it->channel;
+                    off.pitch = it->pitch;
+                    off.velocity = 0;
+                    off.isNoteOn = false;
+                    off.instrument = inst;
+                    outEvents.push_back(off);
+                    it = states.erase(it);
+                    continue;
+                } else {
+                    it->remainingSamples -= numSamples;
+                }
             }
+            ++it;
         }
     }
 
@@ -328,17 +400,22 @@ void SequencerEngine::processBlock(int numSamples,
             }
 
             if (stepDef.action == Harmonic::StepActionType::Rest) {
-                // Terminate any active note for this instrument on explicit rest
-                if (activeNotes[inst].active) {
-                    ScheduledMidiEvent off;
-                    off.sampleOffset = 0;
-                    off.channel = activeNotes[inst].channel;
-                    off.pitch = activeNotes[inst].pitch;
-                    off.velocity = 0;
-                    off.isNoteOn = false;
-                    off.instrument = inst;
-                    outEvents.push_back(off);
-                    activeNotes[inst].active = false;
+                // Terminate any active notes for this instrument on explicit rest
+                if (activeNotes.find(inst) != activeNotes.end()) {
+                    for (auto& st : activeNotes[inst]) {
+                        if (st.active) {
+                            ScheduledMidiEvent off;
+                            off.sampleOffset = 0;
+                            off.channel = st.channel;
+                            off.pitch = st.pitch;
+                            off.velocity = 0;
+                            off.isNoteOn = false;
+                            off.instrument = inst;
+                            outEvents.push_back(off);
+                            st.active = false;
+                        }
+                    }
+                    activeNotes[inst].clear();
                 }
                 continue;
             }
@@ -348,7 +425,6 @@ void SequencerEngine::processBlock(int numSamples,
                 continue;
             }
 
-            int targetPitch = computeRelativeStepPitch(inst, track, stepDef, voice.midiPitch);
             int lengthSteps = std::clamp(stepDef.lengthSteps, 1, 16);
             int gateSamples = static_cast<int>(stepDurationSamples * lengthSteps * std::clamp(stepDef.gate, 0.1, 1.0));
 
@@ -356,31 +432,47 @@ void SequencerEngine::processBlock(int numSamples,
             int scaledVel = static_cast<int>(stepDef.velocity * track.volume);
             scaledVel = std::clamp(scaledVel, 1, 127);
 
-            // Stop prior sounding note if still active
-            if (activeNotes[inst].active) {
-                ScheduledMidiEvent off;
-                off.sampleOffset = 0;
-                off.channel = activeNotes[inst].channel;
-                off.pitch = activeNotes[inst].pitch;
-                off.velocity = 0;
-                off.isNoteOn = false;
-                off.instrument = inst;
-                outEvents.push_back(off);
+            // Stop prior sounding notes if still active before triggering new ones
+            if (activeNotes.find(inst) != activeNotes.end()) {
+                for (auto& st : activeNotes[inst]) {
+                    if (st.active) {
+                        ScheduledMidiEvent off;
+                        off.sampleOffset = 0;
+                        off.channel = st.channel;
+                        off.pitch = st.pitch;
+                        off.velocity = 0;
+                        off.isNoteOn = false;
+                        off.instrument = inst;
+                        outEvents.push_back(off);
+                        st.active = false;
+                    }
+                }
+                activeNotes[inst].clear();
             }
 
-            // Emit NoteOn
-            ScheduledMidiEvent on;
-            on.sampleOffset = 0;
-            on.channel = voice.midiChannel;
-            on.pitch = targetPitch;
-            on.velocity = scaledVel;
-            on.isNoteOn = true;
-            on.isController = false;
-            on.articulation = stepDef.articulation;
-            on.instrument = inst;
-            outEvents.push_back(on);
+            // Collect all offsets for polyphony (single note, dyad, or triad)
+            std::vector<int> allOffsets = { stepDef.stepOffset };
+            for (int eo : stepDef.extraOffsets) {
+                allOffsets.push_back(eo);
+            }
 
-            activeNotes[inst] = {targetPitch, voice.midiChannel, gateSamples, true};
+            for (int offVal : allOffsets) {
+                int targetPitch = computeRelativeStepPitch(inst, track, offVal, voice.midiPitch, stepDef.octaveOffset);
+
+                // Emit NoteOn
+                ScheduledMidiEvent on;
+                on.sampleOffset = 0;
+                on.channel = voice.midiChannel;
+                on.pitch = targetPitch;
+                on.velocity = scaledVel;
+                on.isNoteOn = true;
+                on.isController = false;
+                on.articulation = stepDef.articulation;
+                on.instrument = inst;
+                outEvents.push_back(on);
+
+                activeNotes[inst].push_back({targetPitch, voice.midiChannel, gateSamples, true});
+            }
         }
     }
 
