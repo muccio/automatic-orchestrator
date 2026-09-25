@@ -133,7 +133,7 @@ void StandardMidiWriter::buildInstrumentTrack(std::vector<uint8_t>& trackBytes,
 
         if (!step.active || step.action == Harmonic::StepActionType::Rest) continue;
 
-        uint32_t lenSteps = static_cast<uint32_t>(std::clamp(step.lengthSteps, 1, 16));
+        uint32_t lenSteps = static_cast<uint32_t>(std::clamp(step.lengthSteps, 1, 128));
         uint32_t totalNoteTicks = ticksPerStep * lenSteps;
         uint32_t gateTicks = static_cast<uint32_t>(totalNoteTicks * std::clamp(step.gate, 0.1, 1.0));
         uint32_t stepEndTick = stepStartTick + gateTicks;

@@ -136,6 +136,9 @@ public:
 
     void paint(juce::Graphics& g) override;
     void mouseDown(const juce::MouseEvent& e) override;
+    void mouseMove(const juce::MouseEvent& e) override;
+    void mouseDrag(const juce::MouseEvent& e) override;
+    void mouseUp(const juce::MouseEvent& e) override;
     void mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override;
 
 private:
@@ -147,6 +150,12 @@ private:
     Harmonic::InstrumentId selectedInst = Harmonic::InstrumentId::Violins1;
     int selectedStep = 0;
     std::vector<Harmonic::InstrumentId> trackList;
+
+    bool isResizingDuration = false;
+    Harmonic::InstrumentId resizingInst = Harmonic::InstrumentId::Violins1;
+    int resizingStep = -1;
+    int originalLength = 1;
+    int dragStartX = 0;
 
     void rebuildTrackList();
 };
@@ -172,19 +181,22 @@ public:
     void filesDropped(const juce::StringArray& files, int x, int y) override;
 
     void loadMidiFile(const juce::File& file);
+    void loadPresetFile(const juce::File& file);
+    void setPatternBarLength(int newBars);
 
 private:
     MidiPresetConverter converter;
     ParsedMidiFile parsedMidi;
     TonalAnalysisResult tonalResult;
     bool hasFileLoaded = false;
+    bool isLoadedFromPreset = false;
     bool isDraggingOver = false;
 
     enum class WizardStep {
         FileLoad = 0,
         TonalAnalysis = 1,
         TrackMapping = 2,
-        SequencerAudition = 3,  // <-- NEW STEP BEFORE SAVE!
+        SequencerAudition = 3,  // <-- Interactive Sequencer & Audition
         SaveExport = 4
     };
     WizardStep currentStep = WizardStep::FileLoad;
@@ -195,8 +207,9 @@ private:
     juce::TextButton nextBtn{"NEXT >"};
 
     // Step 1: File Loading
-    juce::Label step1Title{"STEP 1: LOAD ORCHESTRAL MIDI FILE"};
+    juce::Label step1Title{"STEP 1: LOAD ORCHESTRAL MIDI FILE OR PRESET"};
     juce::TextButton browseBtn{"Browse MIDI File..."};
+    juce::TextButton browsePresetBtn{"Load Existing Preset (.json)..."};
     juce::Label fileInfoLabel;
 
     // Step 2: Tonal & Harmonic Analysis
@@ -214,12 +227,20 @@ private:
     juce::Component trackListContainer;
     std::vector<std::unique_ptr<TrackMappingRowComponent>> trackRows;
 
-    // Step 4: Sequencer Preview & Audition (NEW STEP!)
-    juce::Label step4Title{"STEP 4: SEQUENCER PREVIEW & AUDITION (ANTEPRIMA E ASCOLTO)"};
+    // Step 4: Sequencer Preview & Audition
+    juce::Label step4Title{"STEP 4: SEQUENCER PREVIEW & AUDITION (MULTI-BAR EDITOR)"};
     juce::TextButton auditionPlayBtn{"▶ PLAY AUDITION"};
     juce::Label auditionBpmLabel{"BPM:"};
     juce::Slider auditionBpmSlider;
-    juce::Label auditionChordLabel{"Audition Chord:"};
+    juce::Label barLengthLabel{"Bars:"};
+    juce::ComboBox barLengthSelector;
+    juce::TextButton btnRemoveBar{"-1 Bar"};
+    juce::TextButton btnAddBar{"+1 Bar"};
+    juce::TextButton btnDuplicateBar1ToAll{"Copy Bar 1 -> All"};
+    juce::TextButton btnLoadPresetInStep4{"📂 Load Preset..."};
+    juce::TextButton btnQuickSaveInStep4{"💾 Quick Save"};
+
+    juce::Label auditionChordLabel{"Chord:"};
     juce::ComboBox auditionRootSelector;
     juce::ComboBox auditionQualitySelector;
 
@@ -247,6 +268,12 @@ private:
     juce::Slider inspectorVelocitySlider;
     juce::Label inspectorLengthLabel{"Length (Steps):"};
     juce::Slider inspectorLengthSlider;
+    juce::TextButton btnDur16th{"1/16"};
+    juce::TextButton btnDur8th{"1/8"};
+    juce::TextButton btnDurQuarter{"1/4"};
+    juce::TextButton btnDurHalf{"1/2"};
+    juce::TextButton btnDur1Bar{"1 Bar"};
+    juce::TextButton btnDur2Bars{"2 Bars"};
     juce::Label inspectorArtLabel{"Articulation:"};
     juce::ComboBox inspectorArtSelector;
     juce::TextButton btnOctaveUp{"+1 Octave"};

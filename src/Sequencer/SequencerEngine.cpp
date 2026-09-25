@@ -128,7 +128,7 @@ void SequencerEngine::setTrackStepLength(Harmonic::InstrumentId inst, int stepIn
     std::lock_guard<std::mutex> lock(patternMutex);
     auto& track = ensureTrackExistsLocked(inst);
     if (stepIndex >= 0 && stepIndex < (int)track.steps.size()) {
-        track.steps[stepIndex].lengthSteps = std::clamp(lengthSteps, 1, 16 - stepIndex);
+        track.steps[stepIndex].lengthSteps = std::clamp(lengthSteps, 1, std::max(1, (int)track.steps.size() - stepIndex));
     }
 }
 
@@ -446,7 +446,7 @@ void SequencerEngine::processBlock(int numSamples,
                 continue;
             }
 
-            int lengthSteps = std::clamp(stepDef.lengthSteps, 1, 16);
+            int lengthSteps = std::clamp(stepDef.lengthSteps, 1, 128);
             int gateSamples = static_cast<int>(stepDurationSamples * lengthSteps * std::clamp(stepDef.gate, 0.1, 1.0));
 
             // Apply track volume scaling to velocity

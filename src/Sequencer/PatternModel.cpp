@@ -653,7 +653,7 @@ OrchestralPattern OrchestralPattern::fromJson(const std::string& jsonStr) {
                             sd.extraOffsets.push_back(eo.asInt(0));
                         }
                     }
-                    sd.lengthSteps = std::clamp(sNode["lengthSteps"].asInt(1), 1, 16);
+                    sd.lengthSteps = std::clamp(sNode["lengthSteps"].asInt(1), 1, 128);
                     sd.velocity = sNode["velocity"].asInt(90);
                     sd.gate = sNode["gate"].asDouble(0.85);
                     sd.octaveOffset = sNode["octaveOffset"].asInt(0);

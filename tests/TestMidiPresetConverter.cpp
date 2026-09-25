@@ -480,4 +480,64 @@ TEST_CASE(MidiPresetConverter, TestConvertMidSimilarityRoundtrip) {
     ASSERT_TRUE(overallSimilarity >= 80.0f);
 }
 
+TEST_CASE(MidiPresetConverter, MultiBarNoteDurationAndPresetRoundtrip) {
+    // 1. Create a 4-bar pattern (64 steps) with multi-length notes (up to 32 steps)
+    Sequencer::OrchestralPattern pat;
+    pat.name = "Epic 4-Bar Fantasy Theme";
+    pat.bpm = 128.0;
+    pat.barLength = 4;
+
+    Sequencer::TrackPattern trk;
+    trk.instrument = Harmonic::InstrumentId::Violins1;
+    trk.trackName = "1st Violins";
+    trk.section = Harmonic::OrchestralSection::Strings;
+    trk.stepCount = 64;
+    trk.steps.resize(64);
+
+    // Step 0: 4 steps long note
+    trk.steps[0].active = true;
+    trk.steps[0].stepOffset = 0;
+    trk.steps[0].lengthSteps = 4;
+    trk.steps[0].action = Harmonic::StepActionType::Sustain;
+
+    // Step 16 (Bar 2): 16 steps long note (Full Bar Sustain)
+    trk.steps[16].active = true;
+    trk.steps[16].stepOffset = 2;
+    trk.steps[16].lengthSteps = 16;
+    trk.steps[16].action = Harmonic::StepActionType::Sustain;
+
+    // Step 32 (Bar 3 & 4): 32 steps long note (2 Full Bars Sustain)
+    trk.steps[32].active = true;
+    trk.steps[32].stepOffset = 4;
+    trk.steps[32].lengthSteps = 32;
+    trk.steps[32].action = Harmonic::StepActionType::Sustain;
+
+    pat.tracks[trk.instrument] = trk;
+
+    // 2. Test JSON Serialization
+    std::string jsonStr = pat.toJson();
+    ASSERT_TRUE(!jsonStr.empty());
+    ASSERT_TRUE(jsonStr.find("\"barLength\": 4") != std::string::npos);
+
+    // 3. Test Loading Preset from JSON
+    Sequencer::OrchestralPattern loaded = Sequencer::OrchestralPattern::fromJson(jsonStr);
+    ASSERT_EQ(loaded.name, "Epic 4-Bar Fantasy Theme");
+    ASSERT_EQ(loaded.barLength, 4);
+    ASSERT_EQ(loaded.tracks.size(), 1);
+
+    const auto& loadedTrk = loaded.tracks.at(Harmonic::InstrumentId::Violins1);
+    ASSERT_EQ(loadedTrk.steps.size(), 64);
+
+    // Verify duration values were not truncated to 16
+    ASSERT_TRUE(loadedTrk.steps[0].active);
+    ASSERT_EQ(loadedTrk.steps[0].lengthSteps, 4);
+
+    ASSERT_TRUE(loadedTrk.steps[16].active);
+    ASSERT_EQ(loadedTrk.steps[16].lengthSteps, 16);
+
+    ASSERT_TRUE(loadedTrk.steps[32].active);
+    ASSERT_EQ(loadedTrk.steps[32].lengthSteps, 32); // Crucial: > 16 steps duration preserved!
+}
+
+
 

@@ -36,6 +36,23 @@ static const Harmonic::InstrumentId ALL_INSTRUMENTS[] = {
 };
 static const int NUM_ALL_INSTRUMENTS = sizeof(ALL_INSTRUMENTS) / sizeof(ALL_INSTRUMENTS[0]);
 
+static juce::String formatStepDuration(int steps) {
+    if (steps == 1) return "1/16";
+    if (steps == 2) return "1/8";
+    if (steps == 3) return "1/8 d";
+    if (steps == 4) return "1/4";
+    if (steps == 6) return "1/4 d";
+    if (steps == 8) return "1/2";
+    if (steps == 12) return "1/2 d";
+    if (steps == 16) return "1 Bar";
+    if (steps == 32) return "2 Bars";
+    if (steps == 48) return "3 Bars";
+    if (steps == 64) return "4 Bars";
+    if (steps == 96) return "6 Bars";
+    if (steps == 128) return "8 Bars";
+    return juce::String(steps) + " st";
+}
+
 static int instrumentToId(Harmonic::InstrumentId id) {
     for (int i = 0; i < NUM_ALL_INSTRUMENTS; ++i) {
         if (ALL_INSTRUMENTS[i] == id) return i + 1;
@@ -391,7 +408,7 @@ void AuditionAudioPlayer::advanceStepAndTriggerNotes() {
             double freq = 440.0 * std::pow(2.0, (targetPitch - 69) / 12.0);
             voice.phaseDelta = static_cast<float>((freq * 2.0 * 3.1415926535) / sampleRate);
 
-            int durSteps = std::clamp(stepDef.lengthSteps, 1, 16);
+            int durSteps = std::clamp(stepDef.lengthSteps, 1, 128);
             voice.remainingSamples = stepSamples * durSteps * std::clamp(stepDef.gate, 0.1, 0.95);
 
             // Natural panning
@@ -717,51 +734,69 @@ void SequencerPreviewGridComponent::paint(juce::Graphics& g) {
         g.setColour(trk.isSolo ? juce::Colours::black : juce::Colour(0xff8b949e));
         g.drawText("S", 148, y + 8, 16, 20, juce::Justification::centred);
 
-        // Step cells
+        // 1. Draw cell backgrounds and grid lines
         for (int s = 0; s < totalSteps; ++s) {
             int x = headerWidth + s * stepWidth;
             bool isCellSelected = (isTrackSelected && s == selectedStep);
 
-            if (s < (int)trk.steps.size() && trk.steps[s].active && trk.steps[s].action != Harmonic::StepActionType::Rest) {
-                const auto& sd = trk.steps[s];
-                int len = std::clamp(sd.lengthSteps, 1, 16);
-                int blockW = (len * stepWidth) - 2;
+            // Subtle cell border
+            g.setColour(juce::Colour(0xff1a1f26));
+            g.drawRect(x, y + 2, stepWidth, rowHeight - 4, 1);
 
-                // Active step fill
-                g.setColour(secCol.withAlpha(0.85f));
-                g.fillRoundedRectangle((float)x + 1.0f, (float)y + 3.0f, (float)blockW, (float)rowHeight - 6.0f, 3.0f);
-
-                // Highlight selected cell
-                if (isCellSelected) {
-                    g.setColour(juce::Colours::yellow);
-                    g.drawRoundedRectangle((float)x + 1.0f, (float)y + 3.0f, (float)blockW, (float)rowHeight - 6.0f, 3.0f, 2.0f);
-                } else {
-                    g.setColour(secCol.brighter(0.4f));
-                    g.drawRoundedRectangle((float)x + 1.0f, (float)y + 3.0f, (float)blockW, (float)rowHeight - 6.0f, 3.0f, 1.0f);
-                }
-
-                // Note name and degree offset
-                std::string noteName = calculateNoteNameForStep(inst, sd);
-                g.setColour(juce::Colours::white);
-                g.setFont(juce::Font(9.0f, juce::Font::bold));
-                g.drawText(noteName, x + 2, y + 5, blockW - 4, 12, juce::Justification::left);
-
-                juce::String degStr = (sd.stepOffset >= 0 ? "+" : "") + juce::String(sd.stepOffset);
-                g.setFont(juce::Font(8.0f));
-                g.setColour(juce::Colour(0xffedf2f7));
-                g.drawText(degStr, x + 2, y + 17, blockW - 4, 10, juce::Justification::left);
-
-                // Velocity bar at bottom
-                float velNorm = sd.velocity / 127.0f;
-                g.setColour(juce::Colour(0xffffffff).withAlpha(0.6f));
-                g.fillRect(x + 2, y + rowHeight - 6, static_cast<int>((blockW - 4) * velNorm), 2);
-            } else {
-                // Inactive cell
-                if (isCellSelected) {
-                    g.setColour(juce::Colour(0xff4a5568));
-                    g.drawRect(x + 1, y + 2, stepWidth - 2, rowHeight - 4, 1);
-                }
+            if (isCellSelected) {
+                g.setColour(juce::Colour(0xff4a5568));
+                g.drawRect(x + 1, y + 3, stepWidth - 2, rowHeight - 6, 1);
             }
+        }
+
+        // 2. Draw active note blocks on top (supporting multi-step durations)
+        for (int s = 0; s < totalSteps; ++s) {
+            if (s >= (int)trk.steps.size()) break;
+            const auto& sd = trk.steps[s];
+            if (!sd.active || sd.action == Harmonic::StepActionType::Rest) continue;
+
+            int x = headerWidth + s * stepWidth;
+            bool isCellSelected = (isTrackSelected && s == selectedStep);
+            int len = std::clamp(sd.lengthSteps, 1, std::max(1, totalSteps - s));
+            int blockW = (len * stepWidth) - 2;
+
+            // Active step fill
+            g.setColour(secCol.withAlpha(0.88f));
+            g.fillRoundedRectangle((float)x + 1.0f, (float)y + 3.0f, (float)blockW, (float)rowHeight - 6.0f, 4.0f);
+
+            // Selection highlight
+            if (isCellSelected) {
+                g.setColour(juce::Colours::yellow);
+                g.drawRoundedRectangle((float)x + 1.0f, (float)y + 3.0f, (float)blockW, (float)rowHeight - 6.0f, 4.0f, 2.0f);
+            } else {
+                g.setColour(secCol.brighter(0.45f));
+                g.drawRoundedRectangle((float)x + 1.0f, (float)y + 3.0f, (float)blockW, (float)rowHeight - 6.0f, 4.0f, 1.0f);
+            }
+
+            // Right-edge resize handle (visual cue for interactive dragging)
+            int handleX = x + blockW - 6;
+            g.setColour(juce::Colours::white.withAlpha(0.65f));
+            g.fillRect(handleX, y + 9, 2, rowHeight - 18);
+            g.fillRect(handleX + 3, y + 9, 2, rowHeight - 18);
+
+            // Note name and degree offset / duration
+            std::string noteName = calculateNoteNameForStep(inst, sd);
+            g.setColour(juce::Colours::white);
+            g.setFont(juce::Font(9.0f, juce::Font::bold));
+            g.drawText(noteName, x + 3, y + 5, blockW - 10, 12, juce::Justification::left);
+
+            juce::String degStr = (sd.stepOffset >= 0 ? "+" : "") + juce::String(sd.stepOffset);
+            if (len > 1) {
+                degStr += " (" + formatStepDuration(len) + ")";
+            }
+            g.setFont(juce::Font(8.0f));
+            g.setColour(juce::Colour(0xffedf2f7));
+            g.drawText(degStr, x + 3, y + 17, blockW - 10, 10, juce::Justification::left);
+
+            // Velocity bar at bottom
+            float velNorm = sd.velocity / 127.0f;
+            g.setColour(juce::Colour(0xffffffff).withAlpha(0.7f));
+            g.fillRect(x + 3, y + rowHeight - 6, static_cast<int>((blockW - 6) * velNorm), 2);
         }
 
         y += rowHeight;
@@ -776,6 +811,55 @@ void SequencerPreviewGridComponent::paint(juce::Graphics& g) {
         juce::Path p;
         p.addTriangle(px + 4.0f, 0.0f, px + stepWidth - 4.0f, 0.0f, px + (stepWidth / 2.0f), 8.0f);
         g.fillPath(p);
+    }
+}
+
+void SequencerPreviewGridComponent::mouseMove(const juce::MouseEvent& e) {
+    const int headerWidth = 170;
+    const int stepWidth = 24;
+    const int rowHeight = 36;
+    const int topHeaderHeight = 26;
+
+    int totalSteps = pattern.barLength * 16;
+    for (const auto& [inst, trk] : pattern.tracks) {
+        if ((int)trk.stepCount > totalSteps) totalSteps = trk.stepCount;
+    }
+    if (totalSteps <= 0) totalSteps = 16;
+
+    if (e.y < topHeaderHeight || e.x < headerWidth) {
+        setMouseCursor(juce::MouseCursor::NormalCursor);
+        return;
+    }
+
+    int trackIdx = (e.y - topHeaderHeight) / rowHeight;
+    if (trackIdx < 0 || trackIdx >= (int)trackList.size()) {
+        setMouseCursor(juce::MouseCursor::NormalCursor);
+        return;
+    }
+
+    Harmonic::InstrumentId inst = trackList[trackIdx];
+    if (pattern.tracks.find(inst) == pattern.tracks.end()) {
+        setMouseCursor(juce::MouseCursor::NormalCursor);
+        return;
+    }
+
+    const auto& trk = pattern.tracks.at(inst);
+    bool nearHandle = false;
+    for (int s = 0; s < (int)trk.steps.size(); ++s) {
+        if (trk.steps[s].active && trk.steps[s].action != Harmonic::StepActionType::Rest) {
+            int len = std::clamp(trk.steps[s].lengthSteps, 1, std::max(1, totalSteps - s));
+            int blockRight = headerWidth + s * stepWidth + (len * stepWidth) - 2;
+            if (std::abs(e.x - blockRight) <= 6) {
+                nearHandle = true;
+                break;
+            }
+        }
+    }
+
+    if (nearHandle) {
+        setMouseCursor(juce::MouseCursor::LeftRightResizeCursor);
+    } else {
+        setMouseCursor(juce::MouseCursor::NormalCursor);
     }
 }
 
@@ -819,12 +903,48 @@ void SequencerPreviewGridComponent::mouseDown(const juce::MouseEvent& e) {
         return;
     }
 
+    // Check if clicked near right edge of an active note (resize handle)
+    if (e.mods.isLeftButtonDown()) {
+        for (int s = 0; s < (int)trk.steps.size(); ++s) {
+            if (trk.steps[s].active && trk.steps[s].action != Harmonic::StepActionType::Rest) {
+                int len = std::clamp(trk.steps[s].lengthSteps, 1, std::max(1, totalSteps - s));
+                int blockRight = headerWidth + s * stepWidth + (len * stepWidth) - 2;
+                if (std::abs(mx - blockRight) <= 6) {
+                    isResizingDuration = true;
+                    resizingInst = inst;
+                    resizingStep = s;
+                    originalLength = len;
+                    dragStartX = mx;
+                    setSelectedStep(inst, s);
+                    return;
+                }
+            }
+        }
+    }
+
     // Clicked in step grid
     int step = (mx - headerWidth) / stepWidth;
     if (step < 0 || step >= totalSteps) return;
 
     if (step >= (int)trk.steps.size()) {
         trk.steps.resize(totalSteps);
+    }
+
+    // Check if clicked inside the duration of a sustained note
+    int containingStep = -1;
+    for (int s = 0; s < (int)trk.steps.size(); ++s) {
+        if (trk.steps[s].active && trk.steps[s].action != Harmonic::StepActionType::Rest) {
+            int len = std::clamp(trk.steps[s].lengthSteps, 1, std::max(1, totalSteps - s));
+            if (step >= s && step < s + len) {
+                containingStep = s;
+                break;
+            }
+        }
+    }
+
+    if (containingStep >= 0 && containingStep != step && !e.mods.isRightButtonDown()) {
+        setSelectedStep(inst, containingStep);
+        return;
     }
 
     if (e.mods.isRightButtonDown()) {
@@ -845,6 +965,37 @@ void SequencerPreviewGridComponent::mouseDown(const juce::MouseEvent& e) {
     if (onPatternModified) onPatternModified();
 }
 
+void SequencerPreviewGridComponent::mouseDrag(const juce::MouseEvent& e) {
+    if (isResizingDuration && pattern.tracks.find(resizingInst) != pattern.tracks.end()) {
+        auto& trk = pattern.tracks[resizingInst];
+        if (resizingStep >= 0 && resizingStep < (int)trk.steps.size()) {
+            int totalSteps = pattern.barLength * 16;
+            for (const auto& [i, t] : pattern.tracks) {
+                if ((int)t.stepCount > totalSteps) totalSteps = t.stepCount;
+            }
+            const int stepWidth = 24;
+            int deltaSteps = (e.x - dragStartX) / stepWidth;
+            int maxAllowed = std::max(1, totalSteps - resizingStep);
+            int newLen = std::clamp(originalLength + deltaSteps, 1, maxAllowed);
+            if (trk.steps[resizingStep].lengthSteps != newLen) {
+                trk.steps[resizingStep].lengthSteps = newLen;
+                trk.steps[resizingStep].action = (newLen > 1) ? Harmonic::StepActionType::Sustain : Harmonic::StepActionType::Ostinato;
+                repaint();
+                if (onStepSelected) onStepSelected(resizingInst, resizingStep);
+                if (onPatternModified) onPatternModified();
+            }
+        }
+    }
+}
+
+void SequencerPreviewGridComponent::mouseUp(const juce::MouseEvent& /*e*/) {
+    if (isResizingDuration) {
+        isResizingDuration = false;
+        setMouseCursor(juce::MouseCursor::NormalCursor);
+        if (onPatternModified) onPatternModified();
+    }
+}
+
 void SequencerPreviewGridComponent::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) {
     const int headerWidth = 170;
     const int stepWidth = 24;
@@ -862,7 +1013,16 @@ void SequencerPreviewGridComponent::mouseWheelMove(const juce::MouseEvent& e, co
 
     if (trk.steps[step].active) {
         int delta = (wheel.deltaY > 0) ? 1 : -1;
-        trk.steps[step].stepOffset = std::clamp(trk.steps[step].stepOffset + delta, -8, 9);
+        if (e.mods.isShiftDown()) {
+            // Shift + Mouse Wheel: adjust note duration (lengthSteps)
+            int totalSteps = pattern.barLength * 16;
+            int maxLen = std::max(1, totalSteps - step);
+            trk.steps[step].lengthSteps = std::clamp(trk.steps[step].lengthSteps + delta, 1, maxLen);
+            trk.steps[step].action = (trk.steps[step].lengthSteps > 1) ? Harmonic::StepActionType::Sustain : Harmonic::StepActionType::Ostinato;
+        } else {
+            // Normal Mouse Wheel: adjust pitch step offset (-8 to +9)
+            trk.steps[step].stepOffset = std::clamp(trk.steps[step].stepOffset + delta, -8, 9);
+        }
         setSelectedStep(inst, step);
         if (onPatternModified) onPatternModified();
     }
@@ -914,8 +1074,22 @@ ConverterWizardComponent::ConverterWizardComponent() {
                 }
             });
     };
-    browseBtn.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff4a5568));
+    browseBtn.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff3182ce)); // Blue
     addAndMakeVisible(browseBtn);
+
+    browsePresetBtn.onClick = [this]() {
+        auto chooser = std::make_shared<juce::FileChooser>(
+            "Select Orchestrator Preset (.json)", getPresetsFolder(), "*.json");
+        chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+            [this, chooser](const juce::FileChooser& fc) {
+                auto file = fc.getResult();
+                if (file.existsAsFile()) {
+                    loadPresetFile(file);
+                }
+            });
+    };
+    browsePresetBtn.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff6b46c1)); // Purple Accent
+    addAndMakeVisible(browsePresetBtn);
 
     fileInfoLabel.setFont(juce::Font(13.0f));
     fileInfoLabel.setColour(juce::Label::textColourId, juce::Colour(0xffa0aec0));
@@ -1002,6 +1176,77 @@ ConverterWizardComponent::ConverterWizardComponent() {
         audioPlayer.setBpm(auditionBpmSlider.getValue());
     };
     addChildComponent(auditionBpmSlider);
+
+    // Multi-Bar Controls in Step 4
+    barLengthLabel.setFont(juce::Font(11.0f, juce::Font::bold));
+    barLengthLabel.setColour(juce::Label::textColourId, juce::Colour(0xffa0aec0));
+    addChildComponent(barLengthLabel);
+
+    barLengthSelector.addItem("1 Bar (16 st)", 1);
+    barLengthSelector.addItem("2 Bars (32 st)", 2);
+    barLengthSelector.addItem("3 Bars (48 st)", 3);
+    barLengthSelector.addItem("4 Bars (64 st)", 4);
+    barLengthSelector.addItem("6 Bars (96 st)", 6);
+    barLengthSelector.addItem("8 Bars (128 st)", 8);
+    barLengthSelector.addItem("16 Bars (256 st)", 16);
+    barLengthSelector.setSelectedId(2, juce::dontSendNotification);
+    barLengthSelector.onChange = [this]() {
+        setPatternBarLength(barLengthSelector.getSelectedId());
+    };
+    addChildComponent(barLengthSelector);
+
+    btnRemoveBar.onClick = [this]() {
+        if (currentPreviewPattern.barLength > 1) {
+            setPatternBarLength(currentPreviewPattern.barLength - 1);
+            barLengthSelector.setSelectedId(currentPreviewPattern.barLength, juce::dontSendNotification);
+        }
+    };
+    btnRemoveBar.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff2d3748));
+    addChildComponent(btnRemoveBar);
+
+    btnAddBar.onClick = [this]() {
+        setPatternBarLength(currentPreviewPattern.barLength + 1);
+        barLengthSelector.setSelectedId(currentPreviewPattern.barLength, juce::dontSendNotification);
+    };
+    btnAddBar.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff2b6cb0));
+    addChildComponent(btnAddBar);
+
+    btnDuplicateBar1ToAll.onClick = [this]() {
+        auto& pat = previewGrid.getPatternRef();
+        for (auto& [inst, trk] : pat.tracks) {
+            if (trk.steps.size() >= 16) {
+                for (int s = 16; s < (int)trk.steps.size(); ++s) {
+                    trk.steps[s] = trk.steps[s % 16];
+                }
+            }
+        }
+        previewGrid.repaint();
+        currentPreviewPattern = previewGrid.getPattern();
+        audioPlayer.setPattern(currentPreviewPattern);
+        updateInspectorForSelectedStep();
+    };
+    btnDuplicateBar1ToAll.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff4a5568));
+    addChildComponent(btnDuplicateBar1ToAll);
+
+    btnLoadPresetInStep4.onClick = [this]() {
+        auto chooser = std::make_shared<juce::FileChooser>(
+            "Load Orchestrator Preset (.json)", getPresetsFolder(), "*.json");
+        chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+            [this, chooser](const juce::FileChooser& fc) {
+                auto file = fc.getResult();
+                if (file.existsAsFile()) {
+                    loadPresetFile(file);
+                }
+            });
+    };
+    btnLoadPresetInStep4.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff6b46c1)); // Purple Accent
+    addChildComponent(btnLoadPresetInStep4);
+
+    btnQuickSaveInStep4.onClick = [this]() {
+        savePreset(false);
+    };
+    btnQuickSaveInStep4.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff2f855a)); // Green Accent
+    addChildComponent(btnQuickSaveInStep4);
 
     auditionChordLabel.setFont(juce::Font(12.0f, juce::Font::bold));
     auditionChordLabel.setColour(juce::Label::textColourId, juce::Colour(0xffedf2f7));
@@ -1139,17 +1384,42 @@ ConverterWizardComponent::ConverterWizardComponent() {
     inspectorLengthLabel.setColour(juce::Label::textColourId, juce::Colour(0xffa0aec0));
     addChildComponent(inspectorLengthLabel);
 
-    inspectorLengthSlider.setRange(1, 16, 1);
+    inspectorLengthSlider.setRange(1, 64, 1);
     inspectorLengthSlider.setTextBoxStyle(juce::Slider::TextBoxLeft, false, 35, 18);
     inspectorLengthSlider.onValueChange = [this]() {
         auto inst = previewGrid.getSelectedInstrument();
         int step = previewGrid.getSelectedStep();
         if (previewGrid.getPattern().tracks.find(inst) != previewGrid.getPattern().tracks.end()) {
             const auto& sd = previewGrid.getPattern().tracks.at(inst).steps[step];
-            previewGrid.updateSelectedStep(sd.active, sd.stepOffset, sd.velocity, static_cast<int>(inspectorLengthSlider.getValue()), sd.articulation);
+            int len = static_cast<int>(inspectorLengthSlider.getValue());
+            previewGrid.updateSelectedStep(sd.active, sd.stepOffset, sd.velocity, len, sd.articulation);
+            inspectorLengthLabel.setText("Length: " + juce::String(len) + " (" + formatStepDuration(len) + ")", juce::dontSendNotification);
         }
     };
     addChildComponent(inspectorLengthSlider);
+
+    // Quick Duration Buttons
+    auto setQuickDuration = [this](int len) {
+        auto inst = previewGrid.getSelectedInstrument();
+        int step = previewGrid.getSelectedStep();
+        if (previewGrid.getPattern().tracks.find(inst) != previewGrid.getPattern().tracks.end()) {
+            const auto& sd = previewGrid.getPattern().tracks.at(inst).steps[step];
+            previewGrid.updateSelectedStep(sd.active, sd.stepOffset, sd.velocity, len, sd.articulation);
+            inspectorLengthSlider.setValue(len, juce::dontSendNotification);
+            inspectorLengthLabel.setText("Length: " + juce::String(len) + " (" + formatStepDuration(len) + ")", juce::dontSendNotification);
+        }
+    };
+    auto setupDurBtn = [this](juce::TextButton& btn, std::function<void()> cb) {
+        btn.onClick = cb;
+        btn.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff2d3748));
+        addChildComponent(btn);
+    };
+    setupDurBtn(btnDur16th, [setQuickDuration]() { setQuickDuration(1); });
+    setupDurBtn(btnDur8th, [setQuickDuration]() { setQuickDuration(2); });
+    setupDurBtn(btnDurQuarter, [setQuickDuration]() { setQuickDuration(4); });
+    setupDurBtn(btnDurHalf, [setQuickDuration]() { setQuickDuration(8); });
+    setupDurBtn(btnDur1Bar, [setQuickDuration]() { setQuickDuration(16); });
+    setupDurBtn(btnDur2Bars, [setQuickDuration]() { setQuickDuration(32); });
 
     inspectorArtLabel.setFont(juce::Font(10.5f));
     inspectorArtLabel.setColour(juce::Label::textColourId, juce::Colour(0xffa0aec0));
@@ -1245,8 +1515,12 @@ ConverterWizardComponent::ConverterWizardComponent() {
 
     stepsSelector.addItem("1 Bar (16 steps)", 16);
     stepsSelector.addItem("2 Bars (32 steps)", 32);
+    stepsSelector.addItem("3 Bars (48 steps)", 48);
     stepsSelector.addItem("4 Bars (64 steps)", 64);
-    stepsSelector.setSelectedId(16, juce::dontSendNotification);
+    stepsSelector.addItem("6 Bars (96 steps)", 96);
+    stepsSelector.addItem("8 Bars (128 steps)", 128);
+    stepsSelector.addItem("16 Bars (256 steps)", 256);
+    stepsSelector.setSelectedId(32, juce::dontSendNotification);
     addChildComponent(stepsSelector);
 
     saveDirectBtn.onClick = [this]() { savePreset(false); };
@@ -1284,6 +1558,17 @@ void ConverterWizardComponent::timerCallback() {
     if (audioPlayer.isPlaying()) {
         int currentStepPlaying = audioPlayer.getCurrentStep();
         previewGrid.setPlayheadStep(currentStepPlaying);
+
+        // Auto-scroll viewport if playhead moves out of view
+        const int headerWidth = 170;
+        const int stepWidth = 24;
+        int playheadX = headerWidth + currentStepPlaying * stepWidth;
+        int viewX = gridViewport.getViewPositionX();
+        int viewW = gridViewport.getViewWidth();
+        if (playheadX < viewX + headerWidth || playheadX > viewX + viewW - stepWidth) {
+            int targetX = std::max(0, playheadX - viewW / 2);
+            gridViewport.setViewPosition(targetX, gridViewport.getViewPositionY());
+        }
     }
 }
 
@@ -1315,7 +1600,43 @@ void ConverterWizardComponent::setStep(WizardStep step) {
     repaint();
 }
 
+void ConverterWizardComponent::setPatternBarLength(int newBars) {
+    if (newBars <= 0) newBars = 1;
+    currentPreviewPattern.barLength = newBars;
+    int newTotalSteps = newBars * 16;
+
+    for (auto& [inst, trk] : currentPreviewPattern.tracks) {
+        int oldSize = (int)trk.steps.size();
+        trk.stepCount = newTotalSteps;
+        trk.steps.resize(newTotalSteps);
+        if (newTotalSteps > oldSize && oldSize > 0) {
+            for (int s = oldSize; s < newTotalSteps; ++s) {
+                trk.steps[s] = trk.steps[s % oldSize];
+            }
+        }
+    }
+
+    previewGrid.setPattern(currentPreviewPattern);
+    audioPlayer.setPattern(currentPreviewPattern);
+    stepsSelector.setSelectedId(newTotalSteps, juce::dontSendNotification);
+    resized();
+    previewGrid.repaint();
+}
+
 void ConverterWizardComponent::buildPreviewPattern() {
+    if (isLoadedFromPreset) {
+        previewGrid.setPattern(currentPreviewPattern);
+        int root = auditionRootSelector.getSelectedId() - 1;
+        if (root < 0) root = 0;
+        auto quality = static_cast<Harmonic::ChordQuality>(auditionQualitySelector.getSelectedId());
+        audioPlayer.setPattern(currentPreviewPattern);
+        audioPlayer.updateAuditionChord(root, quality);
+        previewGrid.setAuditionChord(root, quality);
+        barLengthSelector.setSelectedId(currentPreviewPattern.barLength, juce::dontSendNotification);
+        updateInspectorForSelectedStep();
+        return;
+    }
+
     ConversionOptions opt;
     opt.presetName = parsedMidi.fileName;
     opt.overrideRootPitchClass = rootSelector.getSelectedId() - 1;
@@ -1334,6 +1655,8 @@ void ConverterWizardComponent::buildPreviewPattern() {
     int root = (opt.overrideRootPitchClass >= 0) ? opt.overrideRootPitchClass : tonalResult.detectedRootPitchClass;
     auditionRootSelector.setSelectedId(root + 1, juce::dontSendNotification);
     auditionQualitySelector.setSelectedId(static_cast<int>(tonalResult.detectedChordQuality), juce::dontSendNotification);
+
+    barLengthSelector.setSelectedId(currentPreviewPattern.barLength, juce::dontSendNotification);
 
     audioPlayer.setPattern(currentPreviewPattern);
     audioPlayer.updateAuditionChord(root, tonalResult.detectedChordQuality);
@@ -1361,7 +1684,11 @@ void ConverterWizardComponent::updateInspectorForSelectedStep() {
     inspectorActiveToggle.setToggleState(sd.active, juce::dontSendNotification);
     inspectorOffsetSlider.setValue(sd.stepOffset, juce::dontSendNotification);
     inspectorVelocitySlider.setValue(sd.velocity, juce::dontSendNotification);
+
+    int totalSteps = currentPreviewPattern.barLength * 16;
+    inspectorLengthSlider.setRange(1, std::max(1, totalSteps), 1);
     inspectorLengthSlider.setValue(sd.lengthSteps, juce::dontSendNotification);
+    inspectorLengthLabel.setText("Length: " + juce::String(sd.lengthSteps) + " (" + formatStepDuration(sd.lengthSteps) + ")", juce::dontSendNotification);
 
     int artId = 1;
     if (sd.articulation == Harmonic::ArticulationType::Staccato) artId = 2;
@@ -1383,6 +1710,7 @@ void ConverterWizardComponent::updateVisibilityForStep() {
     // Step 1
     step1Title.setVisible(isStep1);
     browseBtn.setVisible(isStep1);
+    browsePresetBtn.setVisible(isStep1);
     fileInfoLabel.setVisible(isStep1);
 
     // Step 2
@@ -1398,11 +1726,19 @@ void ConverterWizardComponent::updateVisibilityForStep() {
     step3Title.setVisible(isStep3);
     trackListViewport.setVisible(isStep3);
 
-    // Step 4 (NEW STEP!)
+    // Step 4 (Multi-Bar Sequencer & Audition Editor)
     step4Title.setVisible(isStep4);
     auditionPlayBtn.setVisible(isStep4);
     auditionBpmLabel.setVisible(isStep4);
     auditionBpmSlider.setVisible(isStep4);
+    barLengthLabel.setVisible(isStep4);
+    barLengthSelector.setVisible(isStep4);
+    btnRemoveBar.setVisible(isStep4);
+    btnAddBar.setVisible(isStep4);
+    btnDuplicateBar1ToAll.setVisible(isStep4);
+    btnLoadPresetInStep4.setVisible(isStep4);
+    btnQuickSaveInStep4.setVisible(isStep4);
+
     auditionChordLabel.setVisible(isStep4);
     auditionRootSelector.setVisible(isStep4);
     auditionQualitySelector.setVisible(isStep4);
@@ -1425,6 +1761,12 @@ void ConverterWizardComponent::updateVisibilityForStep() {
     inspectorVelocitySlider.setVisible(isStep4);
     inspectorLengthLabel.setVisible(isStep4);
     inspectorLengthSlider.setVisible(isStep4);
+    btnDur16th.setVisible(isStep4);
+    btnDur8th.setVisible(isStep4);
+    btnDurQuarter.setVisible(isStep4);
+    btnDurHalf.setVisible(isStep4);
+    btnDur1Bar.setVisible(isStep4);
+    btnDur2Bars.setVisible(isStep4);
     inspectorArtLabel.setVisible(isStep4);
     inspectorArtSelector.setVisible(isStep4);
     btnOctaveUp.setVisible(isStep4);
@@ -1460,6 +1802,7 @@ void ConverterWizardComponent::loadMidiFile(const juce::File& file) {
     }
 
     hasFileLoaded = true;
+    isLoadedFromPreset = false;
     tonalResult = converter.analyzeTonalCenter(parsedMidi);
 
     fileInfoLabel.setText(file.getFileName() + " (" + juce::String(parsedMidi.tracks.size()) + " tracks, "
@@ -1493,6 +1836,95 @@ void ConverterWizardComponent::loadMidiFile(const juce::File& file) {
     nextBtn.setVisible(true);
 }
 
+void ConverterWizardComponent::loadPresetFile(const juce::File& file) {
+    std::string content = file.loadFileAsString().toStdString();
+    if (content.empty()) {
+        fileInfoLabel.setText("Failed to load preset: file is empty.", juce::dontSendNotification);
+        fileInfoLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe53e3e));
+        return;
+    }
+
+    currentPreviewPattern = Sequencer::OrchestralPattern::fromJson(content);
+    if (currentPreviewPattern.tracks.empty()) {
+        fileInfoLabel.setText("Failed to parse preset: no tracks found in JSON.", juce::dontSendNotification);
+        fileInfoLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe53e3e));
+        return;
+    }
+
+    hasFileLoaded = true;
+    isLoadedFromPreset = true;
+
+    tonalResult.detectedRootPitchClass = 0; // C default
+    tonalResult.detectedChordQuality = Harmonic::ChordQuality::MajorTriad;
+    tonalResult.detectedChordName = "C Major (Preset Default)";
+    tonalResult.confidence = 1.0f;
+    tonalResult.detectedMode = Harmonic::ScaleMode::Ionian;
+
+    int totalSteps = currentPreviewPattern.barLength * 16;
+    for (const auto& [inst, trk] : currentPreviewPattern.tracks) {
+        if ((int)trk.stepCount > totalSteps) totalSteps = trk.stepCount;
+    }
+    int bars = std::max(1, totalSteps / 16);
+
+    fileInfoLabel.setText("Loaded Preset: \"" + juce::String(currentPreviewPattern.name) + "\" ("
+                         + juce::String(currentPreviewPattern.tracks.size()) + " tracks, "
+                         + juce::String(currentPreviewPattern.bpm, 1) + " BPM, "
+                         + juce::String(bars) + " Bars / " + juce::String(totalSteps) + " Steps)",
+                         juce::dontSendNotification);
+    fileInfoLabel.setColour(juce::Label::textColourId, juce::Colour(0xff48bb78));
+
+    // Update Step 2 Controls
+    detectedKeyBadge.setText(tonalResult.detectedChordName, juce::dontSendNotification);
+    confidenceLabel.setText("Preset Loaded Directly", juce::dontSendNotification);
+    rootSelector.setSelectedId(1, juce::dontSendNotification);
+    modeSelector.setSelectedId(1, juce::dontSendNotification);
+
+    // Build synthetic parsedMidi so Step 3 also works
+    parsedMidi.fileName = currentPreviewPattern.name;
+    parsedMidi.bpm = currentPreviewPattern.bpm;
+    parsedMidi.timeSigNum = currentPreviewPattern.timeSigNumerator;
+    parsedMidi.timeSigDen = currentPreviewPattern.timeSigDenominator;
+    parsedMidi.tracks.clear();
+    int tIdx = 0;
+    for (const auto& [inst, trk] : currentPreviewPattern.tracks) {
+        ParsedMidiTrack pmt;
+        pmt.trackIndex = tIdx++;
+        pmt.trackName = trk.trackName;
+        pmt.channel = trk.midiChannel;
+        pmt.suggestedInstrument = inst;
+        pmt.suggestedSection = trk.section;
+        pmt.suggestedArticulation = trk.articulation;
+        pmt.suggestedArrangerMode = trk.arrangerMode;
+        MidiNoteEvent mne;
+        mne.pitch = 60;
+        mne.startTick = 0;
+        mne.durationTicks = 480;
+        mne.velocity = 100;
+        pmt.notes.push_back(mne);
+        parsedMidi.tracks.push_back(pmt);
+    }
+    buildTrackRows();
+
+    // Update Step 4 Controls
+    auditionBpmSlider.setValue(currentPreviewPattern.bpm, juce::dontSendNotification);
+    barLengthSelector.setSelectedId(currentPreviewPattern.barLength, juce::dontSendNotification);
+    previewGrid.setPattern(currentPreviewPattern);
+    audioPlayer.setPattern(currentPreviewPattern);
+    audioPlayer.setBpm(currentPreviewPattern.bpm);
+    audioPlayer.updateAuditionChord(0, Harmonic::ChordQuality::MajorTriad);
+    previewGrid.setAuditionChord(0, Harmonic::ChordQuality::MajorTriad);
+
+    // Update Step 5 Controls
+    presetNameEditor.setText(currentPreviewPattern.name);
+    bpmEditor.setText(juce::String(currentPreviewPattern.bpm, 1));
+    stepsSelector.setSelectedId(currentPreviewPattern.barLength * 16, juce::dontSendNotification);
+
+    nextBtn.setVisible(true);
+
+    // Jump directly to Step 4 (Multi-Bar Editor & Audition)!
+    setStep(WizardStep::SequencerAudition);
+}
+
 void ConverterWizardComponent::buildTrackRows() {
     trackRows.clear();
     trackListContainer.removeAllChildren();
@@ -1515,9 +1947,19 @@ void ConverterWizardComponent::buildTrackRows() {
 }
 
 void ConverterWizardComponent::savePreset(bool promptCustomLocation) {
-    currentPreviewPattern.name = presetNameEditor.getText().toStdString();
-    currentPreviewPattern.bpm = bpmEditor.getText().getDoubleValue();
-    currentPreviewPattern.barLength = std::max(1, stepsSelector.getSelectedId() / 16);
+    if (presetNameEditor.getText().isNotEmpty()) {
+        currentPreviewPattern.name = presetNameEditor.getText().toStdString();
+    }
+    if (currentPreviewPattern.name.empty()) {
+        currentPreviewPattern.name = "Custom Orchestration";
+    }
+
+    if (bpmEditor.getText().isNotEmpty()) {
+        currentPreviewPattern.bpm = bpmEditor.getText().getDoubleValue();
+    }
+    if (stepsSelector.getSelectedId() > 0) {
+        currentPreviewPattern.barLength = std::max(1, stepsSelector.getSelectedId() / 16);
+    }
 
     std::string jsonStr = currentPreviewPattern.toJson();
 
@@ -1541,7 +1983,7 @@ void ConverterWizardComponent::savePreset(bool promptCustomLocation) {
     } else {
         juce::File folder = getPresetsFolder();
         folder.createDirectory();
-        juce::String cleanName = presetNameEditor.getText().replaceCharacters(" /\\:*?\"<>|", "___________");
+        juce::String cleanName = juce::String(currentPreviewPattern.name).replaceCharacters(" /\\:*?\"<>|", "___________");
         if (!cleanName.endsWithIgnoreCase(".json")) cleanName += ".json";
         auto targetFile = folder.getChildFile(cleanName);
         if (targetFile.replaceWithText(jsonStr)) {
@@ -1561,7 +2003,7 @@ juce::File ConverterWizardComponent::getPresetsFolder() const {
 
 bool ConverterWizardComponent::isInterestedInFileDrag(const juce::StringArray& files) {
     for (const auto& f : files) {
-        if (f.endsWithIgnoreCase(".mid") || f.endsWithIgnoreCase(".midi")) return true;
+        if (f.endsWithIgnoreCase(".mid") || f.endsWithIgnoreCase(".midi") || f.endsWithIgnoreCase(".json")) return true;
     }
     return false;
 }
@@ -1580,7 +2022,10 @@ void ConverterWizardComponent::filesDropped(const juce::StringArray& files, int,
     isDraggingOver = false;
     repaint();
     for (const auto& f : files) {
-        if (f.endsWithIgnoreCase(".mid") || f.endsWithIgnoreCase(".midi")) {
+        if (f.endsWithIgnoreCase(".json")) {
+            loadPresetFile(juce::File(f));
+            break;
+        } else if (f.endsWithIgnoreCase(".mid") || f.endsWithIgnoreCase(".midi")) {
             loadMidiFile(juce::File(f));
             break;
         }
@@ -1637,7 +2082,7 @@ void ConverterWizardComponent::paint(juce::Graphics& g) {
 
         g.setColour(juce::Colour(0xffedf2f7));
         g.setFont(juce::Font(15.0f, juce::Font::bold));
-        g.drawText("DRAG & DROP ORCHESTRAL MIDI FILE HERE", dropZone.removeFromTop(dropZone.getHeight() / 2 + 10), juce::Justification::centred);
+        g.drawText("DRAG & DROP ORCHESTRAL MIDI (.mid) OR PRESET (.json) HERE", dropZone.removeFromTop(dropZone.getHeight() / 2 + 10), juce::Justification::centred);
     }
 }
 
@@ -1651,8 +2096,12 @@ void ConverterWizardComponent::resized() {
 
     // Step 1: File Load
     step1Title.setBounds(60, 68, 500, 24);
-    browseBtn.setBounds(w / 2 - 90, h / 2 + 25, 180, 36);
-    fileInfoLabel.setBounds(60, h / 2 + 75, w - 120, 24);
+    int bW = 200;
+    int bGap = 20;
+    int startBx = w / 2 - (bW * 2 + bGap) / 2;
+    browseBtn.setBounds(startBx, h / 2 + 25, bW, 38);
+    browsePresetBtn.setBounds(startBx + bW + bGap, h / 2 + 25, bW, 38);
+    fileInfoLabel.setBounds(60, h / 2 + 80, w - 120, 24);
 
     // Step 2: Tonal Analysis
     step2Title.setBounds(60, 70, 500, 24);
@@ -1675,67 +2124,82 @@ void ConverterWizardComponent::resized() {
         if (row != nullptr) row->setSize(w - 75, row->getHeight());
     }
 
-    // Step 4: Sequencer Preview & Audition (NEW STEP!)
-    step4Title.setBounds(24, 60, 480, 22);
+    // Step 4: Sequencer Preview & Audition (Multi-Bar Editor)
+    step4Title.setBounds(24, 56, 440, 24);
+    btnDuplicateBar1ToAll.setBounds(w - 380, 54, 140, 26);
+    btnLoadPresetInStep4.setBounds(w - 232, 54, 110, 26);
+    btnQuickSaveInStep4.setBounds(w - 116, 54, 92, 26);
 
     // Audition Top Bar
-    int audY = 88;
-    auditionPlayBtn.setBounds(24, audY, 140, 30);
+    int audY = 86;
+    auditionPlayBtn.setBounds(24, audY, 125, 28);
 
-    auditionBpmLabel.setBounds(176, audY + 4, 35, 22);
-    auditionBpmSlider.setBounds(212, audY + 2, 90, 26);
+    auditionBpmLabel.setBounds(156, audY + 3, 30, 22);
+    auditionBpmSlider.setBounds(188, audY + 1, 75, 26);
 
-    auditionChordLabel.setBounds(318, audY + 4, 95, 22);
-    auditionRootSelector.setBounds(418, audY + 2, 60, 26);
-    auditionQualitySelector.setBounds(484, audY + 2, 105, 26);
+    barLengthLabel.setBounds(270, audY + 3, 35, 22);
+    barLengthSelector.setBounds(306, audY + 1, 105, 26);
+    btnRemoveBar.setBounds(414, audY + 1, 24, 26);
+    btnAddBar.setBounds(441, audY + 1, 46, 26);
+
+    auditionChordLabel.setBounds(495, audY + 3, 42, 22);
+    auditionRootSelector.setBounds(540, audY + 1, 50, 26);
+    auditionQualitySelector.setBounds(593, audY + 1, 95, 26);
 
     // Quick chords
-    int qcx = 600;
-    btnChordC.setBounds(qcx, audY + 2, 34, 26); qcx += 38;
-    btnChordDm.setBounds(qcx, audY + 2, 38, 26); qcx += 42;
-    btnChordG7.setBounds(qcx, audY + 2, 38, 26); qcx += 42;
-    btnChordEm.setBounds(qcx, audY + 2, 38, 26); qcx += 42;
-    btnChordF.setBounds(qcx, audY + 2, 34, 26); qcx += 38;
-    btnChordAm.setBounds(qcx, audY + 2, 38, 26); qcx += 42;
-    btnChordOrig.setBounds(qcx, audY + 2, 68, 26);
+    int qcx = 695;
+    btnChordC.setBounds(qcx, audY + 1, 28, 26); qcx += 31;
+    btnChordDm.setBounds(qcx, audY + 1, 32, 26); qcx += 35;
+    btnChordG7.setBounds(qcx, audY + 1, 32, 26); qcx += 35;
+    btnChordEm.setBounds(qcx, audY + 1, 32, 26); qcx += 35;
+    btnChordF.setBounds(qcx, audY + 1, 28, 26); qcx += 31;
+    btnChordAm.setBounds(qcx, audY + 1, 32, 26); qcx += 35;
+    btnChordOrig.setBounds(qcx, audY + 1, 55, 26);
 
     // Multi-track Grid Viewport
     int gridH = h - 250;
-    gridViewport.setBounds(24, 126, w - 48, gridH);
+    gridViewport.setBounds(24, 122, w - 48, gridH);
 
     int totalSteps = currentPreviewPattern.barLength * 16;
     for (const auto& [inst, trk] : currentPreviewPattern.tracks) {
         if ((int)trk.stepCount > totalSteps) totalSteps = trk.stepCount;
     }
     if (totalSteps <= 0) totalSteps = 16;
-    int gridContentW = std::max(w - 60, 170 + (totalSteps * 24) + 20);
+    int gridContentW = std::max(w - 60, 170 + (totalSteps * 24) + 40);
     int gridContentH = std::max(gridH - 10, 26 + static_cast<int>(currentPreviewPattern.tracks.size()) * 36 + 10);
     previewGrid.setSize(gridContentW, gridContentH);
 
     // Step Detail Inspector Bar (Bottom)
-    int inspY = h - 116;
-    inspectorTitle.setBounds(24, inspY, 150, 18);
-    inspectorTrackStepLabel.setBounds(180, inspY, 260, 18);
-    inspectorPitchReadout.setBounds(450, inspY, 160, 18);
+    int inspY = h - 122;
+    inspectorTitle.setBounds(24, inspY, 145, 18);
+    inspectorTrackStepLabel.setBounds(175, inspY, 230, 18);
+    inspectorPitchReadout.setBounds(415, inspY, 160, 18);
 
-    btnOctaveUp.setBounds(w - 230, inspY - 2, 70, 22);
-    btnOctaveDown.setBounds(w - 150, inspY - 2, 70, 22);
-    btnDuplicateBar.setBounds(w - 380, inspY - 2, 140, 22);
+    btnDuplicateBar.setBounds(w - 340, inspY - 2, 140, 22);
+    btnOctaveUp.setBounds(w - 190, inspY - 2, 75, 22);
+    btnOctaveDown.setBounds(w - 110, inspY - 2, 75, 22);
 
-    inspY += 24;
-    inspectorActiveToggle.setBounds(24, inspY, 95, 24);
+    int row2Y = inspY + 26;
+    inspectorActiveToggle.setBounds(24, row2Y, 92, 24);
 
-    inspectorOffsetLabel.setBounds(125, inspY, 78, 24);
-    inspectorOffsetSlider.setBounds(205, inspY, 80, 24);
+    inspectorOffsetLabel.setBounds(120, row2Y, 55, 24);
+    inspectorOffsetSlider.setBounds(178, row2Y, 65, 24);
 
-    inspectorVelocityLabel.setBounds(295, inspY, 55, 24);
-    inspectorVelocitySlider.setBounds(352, inspY, 80, 24);
+    inspectorVelocityLabel.setBounds(248, row2Y, 52, 24);
+    inspectorVelocitySlider.setBounds(302, row2Y, 68, 24);
 
-    inspectorLengthLabel.setBounds(442, inspY, 90, 24);
-    inspectorLengthSlider.setBounds(534, inspY, 80, 24);
+    inspectorLengthLabel.setBounds(376, row2Y, 120, 24);
+    inspectorLengthSlider.setBounds(500, row2Y, 70, 24);
 
-    inspectorArtLabel.setBounds(624, inspY, 75, 24);
-    inspectorArtSelector.setBounds(700, inspY, 95, 24);
+    btnDur16th.setBounds(576, row2Y, 36, 24);
+    btnDur8th.setBounds(615, row2Y, 34, 24);
+    btnDurQuarter.setBounds(652, row2Y, 34, 24);
+    btnDurHalf.setBounds(689, row2Y, 34, 24);
+    btnDur1Bar.setBounds(726, row2Y, 44, 24);
+    btnDur2Bars.setBounds(773, row2Y, 46, 24);
+
+    inspectorArtLabel.setBounds(826, row2Y, 40, 24);
+    inspectorArtSelector.setBounds(868, row2Y, 88, 24);
 
     // Step 5: Save & Export
     step5Title.setBounds(60, 70, 500, 24);
